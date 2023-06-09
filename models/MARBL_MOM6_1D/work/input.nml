@@ -119,8 +119,24 @@
    /
 
 &model_nml
-   time_step_days      = 0,
-   time_step_seconds   = 3600
+   template_file = '' ! POINT THIS TO A RESTART FILE
+   time_step_days      = 1,
+   time_step_seconds   = 0,
+   model_state_variables = &
+           'Dissolved Inorganic Nitrate',     'NO3',       'UPDATE', ! THIS TABLE IS FORMATTED INCORRECTLY, FIX IT
+           'Dissolved Inorganic Silicate',    'SiO3',      'UPDATE',
+           'Dissolved Inorganic Phosphate',   'PO4',       'UPDATE',
+           'Dissolved Inorganic Iron',        'Fe',        'UPDATE',
+           'Dissolved Inorganic Carbon',      'DIC',       'UPDATE',
+           'Dissolved Oxygen',                'O2',        'UPDATE',
+           'Dissolved Organic Carbon',        'DOC',       'UPDATE',
+           'Dissolved Organic Nitrogen',      'DON',       'UPDATE',
+           'Dissolved Organic Phosphorous',   'DOP',       'UPDATE',
+           'Alkalinity',                      'ALK',       'UPDATE',
+           'Potential Temperature',           'temp',      'UPDATE',
+           'Salinity',                        'salt',      'UPDATE',
+           'Microzooplankton Carbon',         'microzooC', 'UPDATE',
+           'Mesozooplankton Carbon',          'mesozooC',  'UPDATE'
    /
 
 &utilities_nml

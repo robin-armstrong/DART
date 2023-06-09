@@ -67,15 +67,28 @@ public :: get_model_size,         &
 character(len=256), parameter :: source   = "model_mod.f90"
 logical :: module_initialized = .false.
 integer :: dom_id ! used to access the state structure
-type(time_type) :: assimilation_time_step 
+integer :: nfields ! number of fields in the state vector
+integer :: model_size
+type(time_type) :: assimilation_time_step
 
-! Example Namelist
-! Use the namelist for options to be set at runtime.
-character(len=256) :: template_file = 'model_restart.nc'
-integer  :: time_step_days      = 0
-integer  :: time_step_seconds   = 3600
+! parameters to be used in specifying the DART internal state
+integer, parameter :: modelvar_table_height = 14
+integer, parameter :: modelvar_table_width = 3
+integer, parameter :: varname_index = 1
+integer, parameter :: varqty_index = 2
+integer, parameter :: varupdate_index = 3
 
-namelist /model_nml/ template_file, time_step_days, time_step_seconds
+! defining the variables that will be read from the namelist
+character(len=256) :: template_file
+integer            :: time_step_days
+integer            :: time_step_seconds
+character(len=vtablenamelength) &
+   :: model_state_variables(model_var_table_height * model_var_table_width) = ' '
+
+namelist /model_nml/ template_file, &
+                     time_step_days, &
+                     time_step_seconds, &
+                     model_state_variables
 
 contains
 
@@ -88,12 +101,14 @@ contains
 
 subroutine static_init_model()
 
-integer  :: iunit, io
-
 module_initialized = .true.
 
 ! Print module information to log file and stdout.
 call register_module(source)
+
+! Read values from the namelist
+
+integer :: iunit, io
 
 call find_namelist_in_file("input.nml", "model_nml", iunit)
 read(iunit, nml = model_nml, iostat = io)
@@ -111,9 +126,21 @@ if (do_nml_term()) write(     *     , nml=model_nml)
 assimilation_time_step = set_time(time_step_seconds, &
                                   time_step_days)
 
+character(len=vtablenamelength) :: variable_table(modelvar_table_height, modelvar_table_width) 
+integer :: state_qty_list(modelvar_table_height)
+logical :: update_var_list(modelvar_table_height)
 
-! Define which variables are in the model state
-dom_id = add_domain(template_file, num_vars=2, var_names=(/'Temp', 'Wind'/))
+call verify_state_variables(model_state_variables, nfields, variable_table, &
+                            state_qty_list, update_var_list)
+
+dom_id = add_domain(template_file, nfields, &
+                    var_names = variable_table(1:nfields, varname_index), &
+                    kind_list = state_qty_list(1:nfields), &
+                    update_list = update_var_list(1:nfields))
+
+model_size = get_domain_size(domain_id)
+
+! SETUP NECESSARY THINGS RELATED TO GRIDS AND INTERPOLATION?
 
 end subroutine static_init_model
 
@@ -130,7 +157,6 @@ get_model_size = get_domain_size(dom_id)
 
 end function get_model_size
 
-
 !------------------------------------------------------------------
 ! Given a state handle, a location, and a state quantity,
 ! interpolates the state variable fields to that location and returns
@@ -144,26 +170,16 @@ end function get_model_size
 
 subroutine model_interpolate(state_handle, ens_size, location, qty, expected_obs, istatus)
 
-
-type(ensemble_type), intent(in) :: state_handle
-integer,             intent(in) :: ens_size
-type(location_type), intent(in) :: location
-integer,             intent(in) :: qty
-real(r8),           intent(out) :: expected_obs(ens_size) !< array of interpolated values
-integer,            intent(out) :: istatus(ens_size)
+type(ensemble_type), intent(in)  :: state_handle
+integer,             intent(in)  :: ens_size
+type(location_type), intent(in)  :: location
+integer,             intent(in)  :: qty
+real(r8),            intent(out) :: expected_obs(ens_size) !< array of interpolated values
+integer,             intent(out) :: istatus(ens_size)
 
 if ( .not. module_initialized ) call static_init_model
 
-! This should be the result of the interpolation of a
-! given kind (itype) of variable at the given location.
-expected_obs(:) = MISSING_R8
 
-! istatus for successful return should be 0. 
-! Any positive number is an error.
-! Negative values are reserved for use by the DART framework.
-! Using distinct positive values for different types of errors can be
-! useful in diagnosing problems.
-istatus(:) = 1
 
 end subroutine model_interpolate
 
@@ -196,14 +212,21 @@ integer(i8),         intent(in)  :: index_in
 type(location_type), intent(out) :: location
 integer,             intent(out), optional :: qty
 
-
 if ( .not. module_initialized ) call static_init_model
 
-! should be set to the actual location using set_location()
-location = set_location_missing()
+real(r8) :: lat, lon
+integer  :: lon_index, lat_index, level, local_qty
 
-! should be set to the physical quantity, e.g. QTY_TEMPERATURE
-if (present(qty)) qty = 0  
+call get_model_variable_indices(index_in, lon_index, lat_index, level, &
+                                    kind_index = local_qty)
+
+call get_lon_lat(lon_index, lat_index, local_qty, lon, lat)
+
+location = set_location(lon, lat, real(level, r8), VERTISLEVEL)
+
+if(present(qty)) then
+    qty = local_qty
+endif
 
 end subroutine get_state_meta_data
 
