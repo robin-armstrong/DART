@@ -9,7 +9,7 @@ module model_mod
 ! with the DART data assimilation infrastructure. Do not change the arguments
 ! for the public routines.
 
-use        types_mod, only : r8, i8, MISSING_R8
+use        types_mod, only : r8, i8, MISSING_R8, vtablenamelength
 
 use time_manager_mod, only : time_type, set_time
 
@@ -21,13 +21,17 @@ use     location_mod, only : location_type, get_close_type, &
 use    utilities_mod, only : register_module, error_handler, &
                              E_ERR, E_MSG, &
                              nmlfileunit, do_output, do_nml_file, do_nml_term,  &
-                             find_namelist_in_file, check_namelist_read
+                             find_namelist_in_file, check_namelist_read, &
+                             to_upper
 
 use netcdf_utilities_mod, only : nc_add_global_attribute, nc_synchronize_file, &
                                  nc_add_global_creation_time, &
-                                 nc_begin_define_mode, nc_end_define_mode
+                                 nc_begin_define_mode, nc_end_define_mode, &
+                                 NF90_MAX_NAME
 
 use state_structure_mod, only : add_domain, get_domain_size
+
+use obs_kind_mod, only : get_index_for_quantity
 
 use ensemble_manager_mod, only : ensemble_type
 
@@ -83,7 +87,7 @@ character(len=256) :: template_file
 integer            :: time_step_days
 integer            :: time_step_seconds
 character(len=vtablenamelength) &
-   :: model_state_variables(model_var_table_height * model_var_table_width) = ' '
+   :: model_state_variables(modelvar_table_height * modelvar_table_width)
 
 namelist /model_nml/ template_file, &
                      time_step_days, &
@@ -101,14 +105,17 @@ contains
 
 subroutine static_init_model()
 
+integer :: iunit, io
+character(len=vtablenamelength) :: variable_table(modelvar_table_height, modelvar_table_width) 
+integer :: state_qty_list(modelvar_table_height)
+logical :: update_var_list(modelvar_table_height)
+
 module_initialized = .true.
 
 ! Print module information to log file and stdout.
 call register_module(source)
 
 ! Read values from the namelist
-
-integer :: iunit, io
 
 call find_namelist_in_file("input.nml", "model_nml", iunit)
 read(iunit, nml = model_nml, iostat = io)
@@ -126,10 +133,6 @@ if (do_nml_term()) write(     *     , nml=model_nml)
 assimilation_time_step = set_time(time_step_seconds, &
                                   time_step_days)
 
-character(len=vtablenamelength) :: variable_table(modelvar_table_height, modelvar_table_width) 
-integer :: state_qty_list(modelvar_table_height)
-logical :: update_var_list(modelvar_table_height)
-
 call verify_state_variables(model_state_variables, nfields, variable_table, &
                             state_qty_list, update_var_list)
 
@@ -138,7 +141,7 @@ dom_id = add_domain(template_file, nfields, &
                     kind_list = state_qty_list(1:nfields), &
                     update_list = update_var_list(1:nfields))
 
-model_size = get_domain_size(domain_id)
+model_size = get_domain_size(dom_id)
 
 ! SETUP NECESSARY THINGS RELATED TO GRIDS AND INTERPOLATION?
 
@@ -170,16 +173,25 @@ end function get_model_size
 
 subroutine model_interpolate(state_handle, ens_size, location, qty, expected_obs, istatus)
 
-type(ensemble_type), intent(in)  :: state_handle
-integer,             intent(in)  :: ens_size
-type(location_type), intent(in)  :: location
-integer,             intent(in)  :: qty
-real(r8),            intent(out) :: expected_obs(ens_size) !< array of interpolated values
-integer,             intent(out) :: istatus(ens_size)
+type(ensemble_type), intent(in) :: state_handle
+integer,             intent(in) :: ens_size
+type(location_type), intent(in) :: location
+integer,             intent(in) :: qty
+real(r8),           intent(out) :: expected_obs(ens_size) !< array of interpolated values
+integer,            intent(out) :: istatus(ens_size)
 
 if ( .not. module_initialized ) call static_init_model
 
+! This should be the result of the interpolation of a
+! given kind (itype) of variable at the given location.
+expected_obs(:) = MISSING_R8
 
+! istatus for successful return should be 0. 
+! Any positive number is an error.
+! Negative values are reserved for use by the DART framework.
+! Using distinct positive values for different types of errors can be
+! useful in diagnosing problems.
+istatus(:) = 1
 
 end subroutine model_interpolate
 
@@ -212,21 +224,14 @@ integer(i8),         intent(in)  :: index_in
 type(location_type), intent(out) :: location
 integer,             intent(out), optional :: qty
 
+
 if ( .not. module_initialized ) call static_init_model
 
-real(r8) :: lat, lon
-integer  :: lon_index, lat_index, level, local_qty
+! should be set to the actual location using set_location()
+location = set_location_missing()
 
-call get_model_variable_indices(index_in, lon_index, lat_index, level, &
-                                    kind_index = local_qty)
-
-call get_lon_lat(lon_index, lat_index, local_qty, lon, lat)
-
-location = set_location(lon, lat, real(level, r8), VERTISLEVEL)
-
-if(present(qty)) then
-    qty = local_qty
-endif
+! should be set to the physical quantity, e.g. QTY_TEMPERATURE
+if (present(qty)) qty = 0  
 
 end subroutine get_state_meta_data
 
@@ -316,6 +321,77 @@ call nc_end_define_mode(ncid)
 call nc_synchronize_file(ncid)
 
 end subroutine nc_write_model_atts
+
+!------------------------------------------------------------------
+! Verify that the namelist was filled in correctly, and check
+! that there are valid entries for the dart_kind.
+! Returns a table with columns:
+!
+! netcdf_variable_name ; dart_qty_string ; update_string
+
+subroutine verify_state_variables(state_variables, ngood, table, qty_list, update_var)
+
+character(len=*),  intent(inout) :: state_variables(:)
+integer,           intent(out) :: ngood
+character(len=*),  intent(out) :: table(:,:)
+integer,           intent(out) :: qty_list(:)   ! kind number
+logical,           intent(out) :: update_var(:) ! logical update
+
+integer :: nrows, i
+character(len=NF90_MAX_NAME) :: varname, dartstr, update
+character(len=256) :: string1, string2
+
+if ( .not. module_initialized ) call static_init_model
+
+nrows = size(table,1)
+
+ngood = 0
+
+MyLoop : do i = 1, nrows
+
+    varname = trim(state_variables(3*i -2))
+    dartstr = trim(state_variables(3*i -1))
+    update  = trim(state_variables(3*i   ))
+    
+    call to_upper(update)
+
+    table(i,1) = trim(varname)
+    table(i,2) = trim(dartstr)
+    table(i,3) = trim(update)
+
+    if ( table(i,1) == ' ' .and. table(i,2) == ' ' .and. table(i,3) == ' ') exit MyLoop ! Found end of list.
+
+    if ( table(i,1) == ' ' .or. table(i,2) == ' ' .or. table(i,3) == ' ' ) then
+        string1 = 'model_nml:model_state_variables not fully specified'
+        call error_handler(E_ERR,'verify_state_variables',string1)
+    endif
+
+    ! Make sure DART qty is valid
+
+    qty_list(i) = get_index_for_quantity(dartstr)
+    if( qty_list(i)  < 0 ) then
+        write(string1,'(''there is no obs_kind <'',a,''> in obs_kind_mod.f90'')') trim(dartstr)
+        call error_handler(E_ERR,'verify_state_variables',string1)
+    endif
+    
+    ! Make sure the update variable has a valid name
+
+    select case (update)
+        case ('UPDATE')
+            update_var(i) = .true.
+        case ('NO_COPY_BACK')
+            update_var(i) = .false.
+        case default
+            write(string1,'(A)')  'only UPDATE or NO_COPY_BACK supported in model_state_variable namelist'
+            write(string2,'(6A)') 'you provided : ', trim(varname), ', ', trim(dartstr), ', ', trim(update)
+            call error_handler(E_ERR,'verify_state_variables',string1, text2=string2)
+    end select
+
+    ngood = ngood + 1
+enddo MyLoop
+
+
+end subroutine verify_state_variables
 
 !===================================================================
 ! End of model_mod
