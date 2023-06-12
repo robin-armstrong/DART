@@ -122,21 +122,18 @@
    template_file = '' ! POINT THIS TO A RESTART FILE
    time_step_days      = 1,
    time_step_seconds   = 0,
-   model_state_variables = &
-           'Dissolved Inorganic Nitrate',     'NO3',       'UPDATE', ! THIS TABLE IS FORMATTED INCORRECTLY, FIX IT
-           'Dissolved Inorganic Silicate',    'SiO3',      'UPDATE',
-           'Dissolved Inorganic Phosphate',   'PO4',       'UPDATE',
-           'Dissolved Inorganic Iron',        'Fe',        'UPDATE',
-           'Dissolved Inorganic Carbon',      'DIC',       'UPDATE',
-           'Dissolved Oxygen',                'O2',        'UPDATE',
-           'Dissolved Organic Carbon',        'DOC',       'UPDATE',
-           'Dissolved Organic Nitrogen',      'DON',       'UPDATE',
-           'Dissolved Organic Phosphorous',   'DOP',       'UPDATE',
-           'Alkalinity',                      'ALK',       'UPDATE',
-           'Potential Temperature',           'temp',      'UPDATE',
-           'Salinity',                        'salt',      'UPDATE',
-           'Microzooplankton Carbon',         'microzooC', 'UPDATE',
-           'Mesozooplankton Carbon',          'mesozooC',  'UPDATE'
+   model_state_variables = 'NO3      ', 'QTY_DISSOLVED_INORGANIC_NITRATE  ', 'UPDATE',   ! this QTY code is currently unknown to DART
+                           'SiO3     ', 'QTY_DISSOLVED_INORGANIC_SILICATE ', 'UPDATE',   ! this QTY code is currently unknown to DART
+                           'PO4      ', 'QTY_DISSOLVED_INORGANIC_PHOSPHATE', 'UPDATE',   ! this QTY code is currently unknown to DART
+                           'Fe       ', 'QTY_DISSOLVED_INORGANIC_IRON     ', 'UPDATE',
+                           'DIC      ', 'QTY_DISSOLVED_INORGANIC_CARBON   ', 'UPDATE',
+                           'O2       ', 'QTY_DISSOLVED_OXYGEN             ', 'UPDATE',
+                           'DOC      ', 'QTY_DISSOLVED_ORGANIC_CARBON     ', 'UPDATE',   ! this QTY code is currently unknown to DART
+                           'DON      ', 'QTY_DISSOLVED_ORGANIC_NITROGEN   ', 'UPDATE',
+                           'DOP      ', 'QTY_DISSOLVED_ORGANIC_P          ', 'UPDATE',
+                           'ALK      ', 'QTY_ALKALINITY                   ', 'UPDATE',
+                           'microzooC', 'QTY_MICROZOOPLANKTON_CARBON      ', 'UPDATE',   ! this QTY code is currently unknown to DART
+                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON       ', 'UPDATE',   ! this QTY code is currently unknown to DART
    /
 
 &utilities_nml
