@@ -114,26 +114,29 @@
    /
 
 &obs_kind_nml
-   assimilate_these_obs_types = 'RAW_STATE_VARIABLE'
+   assimilate_these_obs_types = 'POLY_ELECTRODE_OXYGEN',
+                                'TITRATION_ALKALINITY',
+                                'CATALYTIC_CARBON',
+                                'UV_OXY_NITROGEN'
    evaluate_these_obs_types   = ''
    /
 
 &model_nml
-   template_file = '' ! POINT THIS TO A RESTART FILE
+   template_file = '../../../../cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/MOM.res.nc'
    time_step_days      = 1,
    time_step_seconds   = 0,
-   model_state_variables = 'NO3      ', 'QTY_DISSOLVED_INORGANIC_NITRATE  ', 'UPDATE',   ! this QTY code is currently unknown to DART
-                           'SiO3     ', 'QTY_DISSOLVED_INORGANIC_SILICATE ', 'UPDATE',   ! this QTY code is currently unknown to DART
-                           'PO4      ', 'QTY_DISSOLVED_INORGANIC_PHOSPHATE', 'UPDATE',   ! this QTY code is currently unknown to DART
-                           'Fe       ', 'QTY_DISSOLVED_INORGANIC_IRON     ', 'UPDATE',
-                           'DIC      ', 'QTY_DISSOLVED_INORGANIC_CARBON   ', 'UPDATE',
-                           'O2       ', 'QTY_DISSOLVED_OXYGEN             ', 'UPDATE',
-                           'DOC      ', 'QTY_DISSOLVED_ORGANIC_CARBON     ', 'UPDATE',   ! this QTY code is currently unknown to DART
-                           'DON      ', 'QTY_DISSOLVED_ORGANIC_NITROGEN   ', 'UPDATE',
-                           'DOP      ', 'QTY_DISSOLVED_ORGANIC_P          ', 'UPDATE',
-                           'ALK      ', 'QTY_ALKALINITY                   ', 'UPDATE',
-                           'microzooC', 'QTY_MICROZOOPLANKTON_CARBON      ', 'UPDATE',   ! this QTY code is currently unknown to DART
-                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON       ', 'UPDATE',   ! this QTY code is currently unknown to DART
+   model_state_variables = 'NO3      ', 'QTY_NITRATE_CONCENTRATION     ', 'UPDATE',
+                           'SiO3     ', 'QTY_DISSOLVED_INORGANIC_SIO3  ', 'UPDATE',
+                           'PO4      ', 'QTY_PHOSPHATE_CONCENTRATION   ', 'UPDATE',
+                           'Fe       ', 'QTY_DISSOLVED_INORGANIC_IRON  ', 'UPDATE',
+                           'DIC      ', 'QTY_DISSOLVED_INORGANIC_CARBON', 'UPDATE',
+                           'O2       ', 'QTY_DISSOLVED_OXYGEN          ', 'UPDATE',
+                           'DOC      ', 'QTY_DISSOLVED_ORGANIC_CARBON  ', 'UPDATE',
+                           'DON      ', 'QTY_DISSOLVED_ORGANIC_NITROGEN', 'UPDATE',
+                           'DOP      ', 'QTY_DISSOLVED_ORGANIC_P       ', 'UPDATE',
+                           'ALK      ', 'QTY_ALKALINITY                ', 'UPDATE',
+                           'microzooC', 'QTY_MICROZOOPLANKTON_CARBON   ', 'UPDATE',
+                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON    ', 'UPDATE',
    /
 
 &utilities_nml
@@ -149,7 +152,7 @@
    output_obs_def_mod_file = '../../../observations/forward_operators/obs_def_mod.f90'
    input_obs_qty_mod_file  = '../../../assimilation_code/modules/observations/DEFAULT_obs_kind_mod.F90'
    output_obs_qty_mod_file = '../../../assimilation_code/modules/observations/obs_kind_mod.f90'
-   obs_type_files          = '../../../observations/forward_operators/obs_def_AURA_mod.f90'
+   obs_type_files          = '../../../observations/forward_operators/obs_def_ocean_mod.f90'
    quantity_files          = '../../../assimilation_code/modules/observations/default_quantities_mod.f90'
    /
 
