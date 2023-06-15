@@ -136,7 +136,7 @@
                            'DOP      ', 'QTY_DISSOLVED_ORGANIC_P       ', 'UPDATE',
                            'ALK      ', 'QTY_ALKALINITY                ', 'UPDATE',
                            'microzooC', 'QTY_MICROZOOPLANKTON_CARBON   ', 'UPDATE',
-                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON    ', 'UPDATE',
+                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON    ', 'UPDATE'
    /
 
 &utilities_nml
@@ -197,7 +197,7 @@
    quantity_of_interest = 'QTY_STATE_VARIABLE'
    interp_test_dx       = 0.02
    interp_test_xrange   = 0.0, 1.0
-   verbose              = .false.
+   verbose              = .true.
    /
 
 &quality_control_nml

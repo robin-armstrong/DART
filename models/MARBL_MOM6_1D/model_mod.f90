@@ -76,7 +76,7 @@ integer :: model_size
 type(time_type) :: assimilation_time_step
 
 ! parameters to be used in specifying the DART internal state
-integer, parameter :: modelvar_table_height = 14
+integer, parameter :: modelvar_table_height = 12
 integer, parameter :: modelvar_table_width = 3
 integer, parameter :: varname_index = 1
 integer, parameter :: varqty_index = 2
