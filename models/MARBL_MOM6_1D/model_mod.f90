@@ -27,7 +27,8 @@ use    utilities_mod, only : register_module, error_handler, &
 use netcdf_utilities_mod, only : nc_add_global_attribute, nc_synchronize_file, &
                                  nc_add_global_creation_time, &
                                  nc_begin_define_mode, nc_end_define_mode, &
-                                 NF90_MAX_NAME
+                                 NF90_MAX_NAME, nc_open_file_readonly, &
+                                 nc_get_variable, nc_close_file
 
 use state_structure_mod, only : add_domain, get_domain_size
 
@@ -39,7 +40,7 @@ use ensemble_manager_mod, only : ensemble_type
 ! To write model specific versions of these routines
 ! remove the routine from this use statement and add your code to
 ! this the file.
-use default_model_mod, only : pert_model_copies, read_model_time, write_model_time, &
+use default_model_mod, only : pert_model_copies, write_model_time, &
                               init_time => fail_init_time, &
                               init_conditions => fail_init_conditions, &
                               convert_vertical_obs, convert_vertical_state, adv_1step
@@ -146,6 +147,27 @@ model_size = get_domain_size(dom_id)
 ! SETUP NECESSARY THINGS RELATED TO GRIDS AND INTERPOLATION?
 
 end subroutine static_init_model
+
+!------------------------------------------------------------------
+! Reads the simulation length from a netCDF file.
+function read_model_time(filename)
+
+character(len=*), intent(in) :: filename
+type(time_type) :: read_model_time
+
+integer :: ncid
+character(len=*), parameter :: routine = 'read_model_time'
+real(r8) :: days
+
+ncid = nc_open_file_readonly(filename, routine)
+
+call nc_get_variable(ncid, 'Time', days, filename)
+
+call nc_close_file(ncid, routine)
+
+read_model_time = set_time(0, int(days))
+
+end function read_model_time
 
 !------------------------------------------------------------------
 ! Returns the number of items in the state vector as an integer. 

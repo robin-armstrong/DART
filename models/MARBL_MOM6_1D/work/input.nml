@@ -188,8 +188,8 @@
    /
 
 &model_mod_check_nml
-   input_state_files    = 'input.nc'
-   output_state_files   = 'mmc_output.nc'
+   input_state_files    = '../../../../cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/MOM.res.nc'
+   output_state_files   = '../../../../cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/MOM.res.output.nc'
    test1thru            = 0
    run_tests            = 1,2,3,4,5,7
    x_ind                = 42
