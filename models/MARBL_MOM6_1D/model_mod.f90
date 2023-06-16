@@ -16,7 +16,8 @@ use time_manager_mod, only : time_type, set_time
 use     location_mod, only : location_type, get_close_type, &
                              loc_get_close_obs => get_close_obs, &
                              loc_get_close_state => get_close_state, &
-                             set_location, set_location_missing
+                             set_location, set_location_missing, &
+                             VERTISLEVEL
 
 use    utilities_mod, only : register_module, error_handler, &
                              E_ERR, E_MSG, &
@@ -30,9 +31,10 @@ use netcdf_utilities_mod, only : nc_add_global_attribute, nc_synchronize_file, &
                                  NF90_MAX_NAME, nc_open_file_readonly, &
                                  nc_get_variable, nc_close_file
 
-use state_structure_mod, only : add_domain, get_domain_size
+use state_structure_mod, only : add_domain, get_domain_size, get_model_variable_indices
 
-use obs_kind_mod, only : get_index_for_quantity
+use obs_kind_mod, only : get_index_for_quantity, QTY_U_CURRENT_COMPONENT, &
+                         QTY_V_CURRENT_COMPONENT, QTY_DRY_LAND
 
 use ensemble_manager_mod, only : ensemble_type
 
@@ -75,6 +77,9 @@ integer :: dom_id ! used to access the state structure
 integer :: nfields ! number of fields in the state vector
 integer :: model_size
 type(time_type) :: assimilation_time_step
+real(r8) :: geolon(2,2), geolat(2,2),     & ! T
+            geolon_u(2,2), geolat_u(2,2), & ! U
+            geolon_v(2,2), geolat_v(2,2)    ! V
 
 ! parameters to be used in specifying the DART internal state
 integer, parameter :: modelvar_table_height = 12
@@ -246,14 +251,21 @@ integer(i8),         intent(in)  :: index_in
 type(location_type), intent(out) :: location
 integer,             intent(out), optional :: qty
 
+real(r8) :: lat, lon
+integer :: lon_index, lat_index, level, local_qty
 
 if ( .not. module_initialized ) call static_init_model
 
-! should be set to the actual location using set_location()
-location = set_location_missing()
+call get_model_variable_indices(index_in, lon_index, lat_index, level, kind_index=local_qty)
 
-! should be set to the physical quantity, e.g. QTY_TEMPERATURE
-if (present(qty)) qty = 0  
+call get_lon_lat(lon_index, lat_index, local_qty, lon, lat) ! SEGFAULT OCCURS HERE
+
+location = set_location(lon, lat, real(level,r8), VERTISLEVEL)
+
+if (present(qty)) then
+    qty = local_qty
+endif
+
 
 end subroutine get_state_meta_data
 
@@ -414,6 +426,60 @@ enddo MyLoop
 
 
 end subroutine verify_state_variables
+
+!------------------------------------------------------------
+! longitude and latitide values from indices
+subroutine get_lon_lat(lon_indx, lat_indx, qty, lon, lat)
+
+integer, intent(in) :: lon_indx, lat_indx, qty
+real(r8) :: lon, lat
+
+if (on_u_grid(qty)) then
+    lon = geolon_u(lon_indx, lat_indx)
+    lat = geolat_u(lon_indx, lat_indx)
+elseif (on_v_grid(qty)) then
+    lon = geolon_v(lon_indx, lat_indx)
+    lat = geolat_v(lon_indx, lat_indx)
+else ! T grid
+    lon = geolon(lon_indx, lat_indx) ! segfault occurs here,
+                                     ! probably there needs to be a statement
+                                     ! in static_init_mod that allocates memory
+                                     ! for the geolon, geolat, geolon_u, etc
+                                     ! data structures. In the MOM6 model this
+                                     ! is accomplished by calling a function called
+                                     ! read_horizontal_grid within static_init_mod.
+    lat = geolat(lon_indx, lat_indx)
+endif
+
+end subroutine get_lon_lat
+
+!------------------------------------------------------------
+function on_v_grid(qty)
+
+integer, intent(in)  :: qty
+logical :: on_v_grid
+
+if (qty == QTY_V_CURRENT_COMPONENT) then
+    on_v_grid = .true.
+else
+    on_v_grid = .false.
+endif
+
+end function on_v_grid
+
+!----------------------------------------------------------
+function on_u_grid(qty)
+
+integer, intent(in)  :: qty
+logical :: on_u_grid
+
+if (qty == QTY_U_CURRENT_COMPONENT) then
+    on_u_grid = .true.
+else
+    on_u_grid = .false.
+endif
+
+end function on_u_grid
 
 !===================================================================
 ! End of model_mod
