@@ -17,7 +17,7 @@ use     location_mod, only : location_type, get_close_type, &
                              loc_get_close_obs => get_close_obs, &
                              loc_get_close_state => get_close_state, &
                              set_location, set_location_missing, &
-                             VERTISLEVEL
+                             get_location, VERTISLEVEL
 
 use    utilities_mod, only : register_module, error_handler, &
                              E_ERR, E_MSG, &
@@ -29,12 +29,16 @@ use netcdf_utilities_mod, only : nc_add_global_attribute, nc_synchronize_file, &
                                  nc_add_global_creation_time, &
                                  nc_begin_define_mode, nc_end_define_mode, &
                                  NF90_MAX_NAME, nc_open_file_readonly, &
-                                 nc_get_variable, nc_close_file
+                                 nc_get_variable, nc_get_variable_size, nc_close_file
 
-use state_structure_mod, only : add_domain, get_domain_size, get_model_variable_indices
+use state_structure_mod, only : add_domain, get_domain_size, get_model_variable_indices, &
+                                get_varid_from_kind, get_dart_vector_index
 
 use obs_kind_mod, only : get_index_for_quantity, QTY_U_CURRENT_COMPONENT, &
-                         QTY_V_CURRENT_COMPONENT, QTY_DRY_LAND
+                         QTY_V_CURRENT_COMPONENT, QTY_DRY_LAND, &
+                         QTY_LAYER_THICKNESS
+
+use distributed_state_mod, only: get_state
 
 use ensemble_manager_mod, only : ensemble_type
 
@@ -73,16 +77,17 @@ public :: get_model_size,         &
 
 character(len=256), parameter :: source   = "model_mod.f90"
 logical :: module_initialized = .false.
-integer :: dom_id ! used to access the state structure
+integer :: dom_id  ! used to access the state structure
 integer :: nfields ! number of fields in the state vector
+integer :: nz      ! the number of vertical layers
 integer :: model_size
 type(time_type) :: assimilation_time_step
-real(r8) :: geolon(2,2), geolat(2,2),     & ! T
-            geolon_u(2,2), geolat_u(2,2), & ! U
-            geolon_v(2,2), geolat_v(2,2)    ! V
+real(r8) :: geolon(2,2), geolat(2,2),     & ! Although this model is "single column," MOM6 actually represents the
+            geolon_u(2,2), geolat_u(2,2), & ! column using four identical columns in a 2 x 2 grid,
+            geolon_v(2,2), geolat_v(2,2)
 
 ! parameters to be used in specifying the DART internal state
-integer, parameter :: modelvar_table_height = 12
+integer, parameter :: modelvar_table_height = 13
 integer, parameter :: modelvar_table_width = 3
 integer, parameter :: varname_index = 1
 integer, parameter :: varqty_index = 2
@@ -148,13 +153,13 @@ dom_id = add_domain(template_file, nfields, &
                     update_list = update_var_list(1:nfields))
 
 model_size = get_domain_size(dom_id)
-
-! SETUP NECESSARY THINGS RELATED TO GRIDS AND INTERPOLATION?
+call read_num_layers ! setting the value of nz
 
 end subroutine static_init_model
 
 !------------------------------------------------------------------
 ! Reads the simulation length from a netCDF file.
+
 function read_model_time(filename)
 
 character(len=*), intent(in) :: filename
@@ -207,18 +212,117 @@ integer,             intent(in) :: qty
 real(r8),           intent(out) :: expected_obs(ens_size) !< array of interpolated values
 integer,            intent(out) :: istatus(ens_size)
 
+integer     :: qty_id, thickness_id, layer_index
+integer(i8) :: qty_index, thickness_index, ens_index
+real(8)     :: requested_depth, layerdepth_bottom, layerdepth_center, &
+               depth_below, depth_above, val_below, val_above
+real(8)     :: layer_thicknesses(nz, ens_size)
+real(8)     :: state_slice(ens_size)
+real(8)     :: loc_temp(3)
+
 if ( .not. module_initialized ) call static_init_model
 
-! This should be the result of the interpolation of a
-! given kind (itype) of variable at the given location.
-expected_obs(:) = MISSING_R8
+qty_id = get_varid_from_kind(dom_id, qty)
 
-! istatus for successful return should be 0. 
-! Any positive number is an error.
-! Negative values are reserved for use by the DART framework.
-! Using distinct positive values for different types of errors can be
-! useful in diagnosing problems.
-istatus(:) = 1
+! extracting the requested depth value from `location`.
+loc_temp = get_location(location)
+requested_depth = loc_temp(3)
+
+! print *, "REQUESTED DEPTH = ",requested_depth
+
+! extracting the current layer thicknesses for each ensemble member.
+thickness_id = get_varid_from_kind(dom_id, QTY_LAYER_THICKNESS)
+
+do layer_index = 1, nz
+    ! layer thicknesses are always extracted from the grid cell at index (1, 1), since the four grid
+    ! cells are supposed to represent identical columns.
+    thickness_index = get_dart_vector_index(1, 1, layer_index, dom_id, thickness_id)
+    layer_thicknesses(layer_index, :) = get_state(thickness_index, state_handle)
+end do
+
+! performing the interpolation for each ensemble member individually.
+do ens_index = 1, ens_size
+
+    ! print *, "----------------------------------------------------"
+    ! print *, "computing centers of layers"
+    ! print *, "----------------------------------------------------"
+
+    ! locating the layer index to be used as the lower interpolation point for this ensemble member.
+    layer_index = 1
+    layerdepth_bottom = layer_thicknesses(1, ens_index) ! depth at bottom of the layer given by layer_index.
+    layerdepth_center = 0.5 * layerdepth_bottom         ! depth at center of the layer given by layer_index.
+
+    ! print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom
+    
+    do while((layerdepth_center < requested_depth) .and. (layer_index < nz))
+        layer_index = layer_index + 1
+        layerdepth_bottom = layerdepth_bottom + layer_thicknesses(layer_index, ens_index)
+        layerdepth_center = layerdepth_bottom - 0.5 * layer_thicknesses(layer_index, ens_index)
+
+        ! print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom
+
+    end do
+
+    ! having located the index of the bottom interpolation layer, we now calculate the interpolation.
+    if((requested_depth < 0) .or. (layerdepth_bottom < requested_depth)) then
+        ! case where the requested depth is negative or exceeds the maximum grid depth.
+
+        ! print *, "----------------------------------------------------"
+        ! print *, "depth is negative or exceeds max grid depth"
+        ! print *, "----------------------------------------------------"
+
+        istatus(ens_index) = 1
+        expected_obs(ens_index) = MISSING_R8
+
+    else if((layerdepth_center < requested_depth) .or. (layer_index == 1)) then
+        ! case where the requested depth is either in the bottom half of the deepest layer,
+        ! or the top half of the shallowest layer. In both cases, the "interpolated" value is
+        ! simply the current value of that layer in MOM6.
+
+        ! print *, "----------------------------------------------------"
+        ! print *, "only using value from layer ",layer_index
+        ! print *, "----------------------------------------------------"
+
+        istatus(ens_index) = 0
+        qty_index = get_dart_vector_index(1, 1, layer_index, dom_id, qty_id)
+        state_slice = get_state(qty_index, state_handle)
+        expected_obs(ens_index) = state_slice(ens_index)
+
+        ! print *, "final value = ",expected_obs(ens_index)
+
+    else
+        ! case where the requested depth is above the center of some layer, and below
+        ! the center of another. We interpolate linearly between the nearest layers above
+        ! and below.
+
+        ! print *, "----------------------------------------------------"
+        ! print *, "interpolating between layers ",(layer_index - 1)," and ",layer_index
+
+        istatus(ens_index) = 0
+
+        ! computing the depths at the centers of the nearest layers above and below
+        depth_below = layerdepth_center
+        depth_above = layerdepth_bottom - layer_thicknesses(layer_index, ens_index) &
+                                        - .5*layer_thicknesses(layer_index - 1, ens_index)
+        
+        ! extracting the quantity values at the layers above and below
+        qty_index = get_dart_vector_index(1, 1, layer_index, dom_id, qty_id)
+        state_slice = get_state(qty_index, state_handle)
+        val_below = state_slice(ens_index)
+
+        qty_index = get_dart_vector_index(1, 1, layer_index - 1, dom_id, qty_id)
+        state_slice = get_state(qty_index, state_handle)
+        val_above = state_slice(ens_index)
+
+        ! print *, "corresponding to the values: ",val_above," and ",val_below
+        ! print *, "----------------------------------------------------"
+
+        ! linear interpolation
+        expected_obs(ens_index) = val_above + (requested_depth - depth_above) * (val_below - val_above) / (depth_below - depth_above)
+
+        ! print *, "final value = ",expected_obs(ens_index)
+    end if
+end do
 
 end subroutine model_interpolate
 
@@ -258,7 +362,7 @@ if ( .not. module_initialized ) call static_init_model
 
 call get_model_variable_indices(index_in, lon_index, lat_index, level, kind_index=local_qty)
 
-call get_lon_lat(lon_index, lat_index, local_qty, lon, lat) ! SEGFAULT OCCURS HERE
+call get_lon_lat(lon_index, lat_index, local_qty, lon, lat)
 
 location = set_location(lon, lat, real(level,r8), VERTISLEVEL)
 
@@ -441,13 +545,7 @@ elseif (on_v_grid(qty)) then
     lon = geolon_v(lon_indx, lat_indx)
     lat = geolat_v(lon_indx, lat_indx)
 else ! T grid
-    lon = geolon(lon_indx, lat_indx) ! segfault occurs here,
-                                     ! probably there needs to be a statement
-                                     ! in static_init_mod that allocates memory
-                                     ! for the geolon, geolat, geolon_u, etc
-                                     ! data structures. In the MOM6 model this
-                                     ! is accomplished by calling a function called
-                                     ! read_horizontal_grid within static_init_mod.
+    lon = geolon(lon_indx, lat_indx)
     lat = geolat(lon_indx, lat_indx)
 endif
 
@@ -480,6 +578,22 @@ else
 endif
 
 end function on_u_grid
+
+!------------------------------------------------------------
+! Read number of vertical layers from mom6 template file
+subroutine read_num_layers()
+
+integer :: ncid
+
+character(len=*), parameter :: routine = 'read_num_layers'
+
+ncid = nc_open_file_readonly(template_file)
+
+call nc_get_variable_size(ncid, 'Layer', nz)
+
+call nc_close_file(ncid)
+
+end subroutine read_num_layers
 
 !===================================================================
 ! End of model_mod

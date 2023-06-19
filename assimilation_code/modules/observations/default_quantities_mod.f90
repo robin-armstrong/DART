@@ -160,6 +160,7 @@
 !   QTY_LANDMASK
 !   QTY_LARGE_SCALE_STATE      desc="state varies with large time/space scale"
 !   QTY_LATENT_HEAT_FLUX
+!   QTY_LAYER_THICKNESS
 !   QTY_LEAF_AREA_INDEX
 !   QTY_LEAF_CARBON
 !   QTY_LEAF_NITROGEN
