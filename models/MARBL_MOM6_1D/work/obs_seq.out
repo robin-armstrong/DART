@@ -1,0 +1,22 @@
+ obs_sequence
+obs_type_definitions
+           1
+          67 POLY_ELECTRODE_OXYGEN          
+  num_copies:            2  num_qc:            1
+  num_obs:            1  max_num_obs:            1
+observations                                                    
+truth                                                           
+Quality Control                                                 
+  first:            1  last:            1
+ OBS            1
+   235.450989456714     
+   234.852087234303     
+  0.000000000000000E+000
+          -1          -1          -1
+obdef
+loc3d
+     0.000000000000000         0.000000000000000         85.00000000000000      3
+kind
+          67
+     0          0
+   20.0000000000000     

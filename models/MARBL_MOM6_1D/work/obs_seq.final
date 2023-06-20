@@ -1,0 +1,112 @@
+ obs_sequence
+obs_type_definitions
+           1
+          67 POLY_ELECTRODE_OXYGEN          
+  num_copies:           46  num_qc:            2
+  num_obs:            1  max_num_obs:            1
+observations                                                    
+truth                                                           
+prior ensemble mean                                             
+posterior ensemble mean                                         
+prior ensemble spread                                           
+posterior ensemble spread                                       
+prior ensemble member      1                                    
+posterior ensemble member      1                                
+prior ensemble member      2                                    
+posterior ensemble member      2                                
+prior ensemble member      3                                    
+posterior ensemble member      3                                
+prior ensemble member      4                                    
+posterior ensemble member      4                                
+prior ensemble member      5                                    
+posterior ensemble member      5                                
+prior ensemble member      6                                    
+posterior ensemble member      6                                
+prior ensemble member      7                                    
+posterior ensemble member      7                                
+prior ensemble member      8                                    
+posterior ensemble member      8                                
+prior ensemble member      9                                    
+posterior ensemble member      9                                
+prior ensemble member     10                                    
+posterior ensemble member     10                                
+prior ensemble member     11                                    
+posterior ensemble member     11                                
+prior ensemble member     12                                    
+posterior ensemble member     12                                
+prior ensemble member     13                                    
+posterior ensemble member     13                                
+prior ensemble member     14                                    
+posterior ensemble member     14                                
+prior ensemble member     15                                    
+posterior ensemble member     15                                
+prior ensemble member     16                                    
+posterior ensemble member     16                                
+prior ensemble member     17                                    
+posterior ensemble member     17                                
+prior ensemble member     18                                    
+posterior ensemble member     18                                
+prior ensemble member     19                                    
+posterior ensemble member     19                                
+prior ensemble member     20                                    
+posterior ensemble member     20                                
+Quality Control                                                 
+DART quality control                                            
+  first:            1  last:            1
+ OBS            1
+   235.450989456714     
+   234.852087234303     
+   234.851795664744     
+   234.851795716965     
+  1.320285079725104E-003
+  1.320285026292076E-003
+   234.852453917424     
+   234.852453969630     
+   234.851486550360     
+   234.851486602617     
+   234.853855572434     
+   234.853855624579     
+   234.850709665293     
+   234.850709717581     
+   234.852606891346     
+   234.852606943513     
+   234.853064134853     
+   234.853064186997     
+   234.850964576736     
+   234.850964628973     
+   234.849817866258     
+   234.849817918552     
+   234.854523121075     
+   234.854523173192     
+   234.851746966775     
+   234.851747018990     
+   234.852111403179     
+   234.852111455385     
+   234.851324732513     
+   234.851324784758     
+   234.853149802237     
+   234.853149854419     
+   234.851705054624     
+   234.851705106858     
+   234.852293239025     
+   234.852293291212     
+   234.852331802620     
+   234.852331854831     
+   234.850173765767     
+   234.850173818040     
+   234.851631636719     
+   234.851631688948     
+   234.849303860343     
+   234.849303912682     
+   234.850658735300     
+   234.850658787552     
+  0.000000000000000E+000
+  0.000000000000000E+000
+          -1          -1          -1
+obdef
+loc3d
+     0.000000000000000         0.000000000000000         85.00000000000000      3
+kind
+          67
+     0          0
+   20.0000000000000     
