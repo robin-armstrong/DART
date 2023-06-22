@@ -5,7 +5,7 @@
 ! $Id$
 
 ! This file is meant to read a text file containing bottle data from the
-! Bermude Atlantic Time-Series Study (https://bats.bios.asu.edu/).
+! Bermuda Atlantic Time-Series Study (https://bats.bios.asu.edu/).
 
 program text_to_obs
 
@@ -29,36 +29,38 @@ use      obs_kind_mod, only : POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, &
 
 implicit none
 
+integer, parameter :: NUM_SCALAR_OBS = 4  ! maximum number of scalar observation variables that will
+                                          ! be assimilated at each observation.
+
+! this array defines the order in which observations are read from the file
+integer, parameter :: OTYPE_ORDERING(NUM_SCALAR_OBS) &
+                      = (/POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, CATALYTIC_CARBON, UV_OXY_NITROGEN/)
+
 ! namelist variables, changeable at runtime
-character(len=256) :: text_input_file
-integer            :: read_starting_at_line, num_variables
-character(len=256) :: obs_out_file
-logical            :: debug
+character(len=256) :: text_input_file, obs_out_file
+integer :: max_lines, read_starting_at_line, date_firstcol, hourminute_firstcol
+integer :: lat_cols(2), lon_cols(2), vert_cols(2)
+integer :: scalar_obs_cols(2, NUM_SCALAR_OBS)
+real(8) :: obs_uncertainties(NUM_SCALAR_OBS)
+logical :: debug
 
-namelist /text_to_obs_nml/ text_input_file, read_starting_at_line, obs_out_file, num_variables, debug
-
+namelist /text_to_obs_nml/ text_input_file, max_lines, read_starting_at_line, date_firstcol, &
+                           hourminute_firstcol, lat_cols, lon_cols, vert_cols, scalar_obs_cols, &
+                           obs_uncertainties, obs_out_file, debug
 
 ! local variables
 character (len=294) :: input_line
 
-integer :: oday, osec, rcio, iunit, otype, line_number
-integer :: year, month, day, hour, minute, second, hourminute_raw
+integer :: oday, osec, rcio, iunit, otype, line_number, otype_index
+integer :: year, month, day, hour, minute, second, hourminute_raw, date_raw
 integer :: num_copies, num_qc, max_obs
            
 logical  :: file_exist, first_obs
 
 real(r8) :: temp, terr, qc, wdir, wspeed, werr
-real(r8) :: lat, lon, vert, uwnd, uerr, vwnd, verr
-
-! observations being assimilated: dissolved oxygen, alkalinity,
-! dissolved organic carbon, and dissolved organic nitrogen.
-real(r8) :: o2, alk, doc, don
+real(r8) :: lat, lon, vert, uwnd, uerr, vwnd, verr, ovalue
 
 ! the uncertainties corresponding to the observations above
-real(r8), parameter :: o2_var  = 20.0
-real(r8), parameter :: alk_var = 100.0
-real(r8), parameter :: doc_var = 4.0
-real(r8), parameter :: don_var = 0.2
 
 type(obs_sequence_type) :: obs_seq
 type(obs_type)          :: obs, prev_obs
@@ -86,10 +88,9 @@ call set_calendar_type(NOLEAP)
 iunit = open_file(text_input_file, 'formatted', 'read')
 if (debug) print *, 'opened input file ' // trim(text_input_file)
 
-max_obs    = num_variables*68000   ! upper bound on the number of lines in the input file
-num_copies = 1       ! number of variables we'll extract from each observation
-num_qc     = 1       ! two quality control flags: one for missing or bad data, another for
-                     ! values less than the detection limit.
+max_obs    = NUM_SCALAR_OBS*max_lines
+num_copies = 1
+num_qc     = 1
 
 ! call the initialization code, and initialize two empty observation types
 call static_init_obs_sequence()
@@ -116,41 +117,52 @@ obsloop: do    ! no end limit - have the loop break when input ends
    read(iunit, "(A)", iostat=rcio) input_line
    line_number = line_number + 1
 
+   if(line_number < read_starting_at_line) then
+      cycle obsloop
+   end if
+
    if (rcio /= 0) then 
       if (debug) print *, 'got bad read code from input file at line ',line_number,', rcio = ', rcio
       exit obsloop
    endif
 
-   if(line_number < read_starting_at_line) then
-      cycle obsloop
+   ! extracting the date when the observation was taken
+
+   read(input_line(date_firstcol:(date_firstcol + 7)), *, iostat=rcio) date_raw
+   if(rcio /= 0) then
+      if(debug) print *, "got bad read code getting date at line ",line_number,", rcio = ",rcio
+      exit obsloop
+
+   else if(date_raw == -999) then
+      cycle obsloop ! missing date
+
    end if
 
-   ! extracting the time when the observation was taken
-
-   read(input_line(14:17), *, iostat=rcio) year
+   read(input_line(date_firstcol:(date_firstcol + 3)), *, iostat=rcio) year
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting year at line ",line_number,", rcio = ",rcio
       exit obsloop
    end if
 
-   read(input_line(18:19), *, iostat=rcio) month
+   read(input_line((date_firstcol + 4):(date_firstcol + 5)), *, iostat=rcio) month
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting month at line ",line_number,", rcio = ",rcio
       exit obsloop
    end if
 
-   read(input_line(20:21), *, iostat=rcio) day
+   read(input_line((date_firstcol + 6):(date_firstcol + 7)), *, iostat=rcio) day
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting day at line ",line_number,", rcio = ",rcio
       exit obsloop
    end if
 
-   if((month == 02) .and. (day == 29)) then  ! we do not assimilate data on leap days
+   if((month == 02) .and. (day == 29)) then  ! we do not assimilate data taken on leap days
       cycle obsloop
    end if
 
-   read(input_line(35:38), *, iostat=rcio) hourminute_raw
+   ! extracting the time of day when the observation was taken
 
+   read(input_line(hourminute_firstcol:(hourminute_firstcol + 3)), *, iostat=rcio) hourminute_raw
    if(rcio /= 0) then
       if(debug) print *, "got bad read code parsing raw hour-minute at line ",line_number,", rcio = ",rcio
       exit obsloop
@@ -162,7 +174,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
       hour = 0
 
    else
-      read(input_line(35:36), *, iostat=rcio) hour
+      read(input_line(hourminute_firstcol:(hourminute_firstcol + 1)), *, iostat=rcio) hour
 
       if(rcio /= 0) then
          if(debug) print *, "got bad read code getting hour at line ",line_number,", rcio = ",rcio
@@ -171,7 +183,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
       end if
    end if
 
-   read(input_line(37:38), *, iostat=rcio) minute
+   read(input_line((hourminute_firstcol + 2):(hourminute_firstcol + 3)), *, iostat=rcio) minute
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting minute at line ",line_number,", rcio = ",rcio
       exit obsloop
@@ -179,86 +191,68 @@ obsloop: do    ! no end limit - have the loop break when input ends
 
    ! extracting the observation location
 
-   read(input_line(42:47), *, iostat=rcio) lat
+   read(input_line(lat_cols(1):lat_cols(2)), *, iostat=rcio) lat
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting lat at line ",line_number,", rcio = ",rcio
       exit obsloop
+      
+   else if(lat == -999.0) then
+      cycle obsloop ! missing latitude
+
    end if
 
-   read(input_line(51:56), *, iostat=rcio) lon
+   read(input_line(lon_cols(1):lon_cols(2)), *, iostat=rcio) lon
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting lon at line ",line_number,", rcio = ",rcio
       exit obsloop
+
+   else if(lon == -999.0) then
+      cycle obsloop ! missing longitude
+
    end if
 
-   read(input_line(58:63), *, iostat=rcio) vert
+   read(input_line(vert_cols(1):vert_cols(2)), *, iostat=rcio) vert
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting vert at line ",line_number,", rcio = ",rcio
       exit obsloop
+
+   else if(vert == -999.0) then
+      cycle obsloop ! missing vertical coordinate
+
    end if
 
    ! extracting the observation values
 
-   read(input_line(103:107), *, iostat=rcio) o2
-   if(rcio /= 0) then
-      if(debug) print *, "got bad read code getting O2 at line ",line_number,", rcio = ",rcio
-      exit obsloop
-   else if(o2 == -999.0) then
-      cycle obsloop ! missing observation
-   end if
+   otype_loop : do otype_index = 1, NUM_SCALAR_OBS
+      read(input_line(scalar_obs_cols(1, otype_index):scalar_obs_cols(2, otype_index)), *, iostat=rcio) ovalue
+      
+      if(rcio /= 0) then
+         if(debug) print *, "got bad read code getting observation type ",otype_index," at line ",line_number,", rcio = ",rcio
+         exit obsloop
 
-   read(input_line(134:139), *, iostat=rcio) alk
-   if(rcio /= 0) then
-      if(debug) print *, "got bad read code getting Alk at line ",line_number,", rcio = ",rcio
-      exit obsloop
-   else if(alk == -999.0) then
-      cycle obsloop ! missing observation
-   end if
+      else if(ovalue == -999.0) then
+         cycle otype_loop ! missing observation
 
-   read(input_line(192:197), *, iostat=rcio) doc
-   if(rcio /= 0) then
-      if(debug) print *, "got bad read code getting DOC at line ",line_number,", rcio = ",rcio
-      exit obsloop
-   else if(doc == -999.0) then
-      cycle ! missing observation
-   end if
+      end if
 
-   read(input_line(201:206), *, iostat=rcio) don
-   if(rcio /= 0) then
-      if(debug) print *, "got bad read code getting DON at line ",line_number,", rcio = ",rcio
-      exit obsloop
-   else if(don == -999.0) then
-      cycle obsloop ! missing observation
-   end if
+      time_obs = set_date(year, month, day, hour, minute, 0)
+      call get_time(time_obs, osec, oday)
 
-   ! adding the observation to the obs sequence
+      if(debug) then
+         call print_date(time_obs, "adding observation taken on")
+         print *, " \__ observation type:  ",OTYPE_ORDERING(otype_index)
+         print *, "     lat:               ",lat
+         print *, "     lon:               ",lon
+         print *, "     vert:              ",vert
+         print *, "     observation value: ",ovalue
+      end if
 
-   time_obs = set_date(year, month, day, hour, minute, 0)
-   call get_time(time_obs, osec, oday)
-   if(debug) call print_date(time_obs, "adding observation at time")
+      call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
+                         ovalue, OTYPE_ORDERING(otype_index), obs_uncertainties(otype_index), &
+                         oday, osec, qc, obs)
 
-   call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
-                      o2, POLY_ELECTRODE_OXYGEN, o2_var, &
-                      oday, osec, qc, obs) ! CRASH OCCURS HERE. This line calls set_obs_values at line 324, which crashes at line
-                                           ! 2396 of obs_sequence_mod.f90. The problem seems to be that obs%values is allocated as 
-                                           ! an array of length 4, but we're trying to assign to it an array of length 1, containing
-                                           ! the value of o2.
-   call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
-
-   call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
-                      alk, TITRATION_ALKALINITY, alk_var, &
-                      oday, osec, qc, obs)
-   call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
-
-   call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
-                      doc, CATALYTIC_CARBON, doc_var, &
-                      oday, osec, qc, obs)
-   call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
-
-   call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
-                      don, UV_OXY_NITROGEN, don_var, &
-                      oday, osec, qc, obs)
-   call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
+      call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
+   end do otype_loop
 end do obsloop
 
 ! if we added any obs to the sequence, write it out to a file now.
