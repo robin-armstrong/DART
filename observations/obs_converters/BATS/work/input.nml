@@ -3,6 +3,7 @@
    text_input_file       = '../../../../../BATS-to-DART/data/BATS/bottle/bats_bottle.txt'
    read_starting_at_line = 61
    obs_out_file          = 'obs_seq.out'
+   num_variables         = 4
    debug                 = .true.
   /
 

@@ -31,11 +31,11 @@ implicit none
 
 ! namelist variables, changeable at runtime
 character(len=256) :: text_input_file
-integer            :: read_starting_at_line
+integer            :: read_starting_at_line, num_variables
 character(len=256) :: obs_out_file
 logical            :: debug
 
-namelist /text_to_obs_nml/ text_input_file, read_starting_at_line, obs_out_file, debug
+namelist /text_to_obs_nml/ text_input_file, read_starting_at_line, obs_out_file, num_variables, debug
 
 
 ! local variables
@@ -86,9 +86,9 @@ call set_calendar_type(NOLEAP)
 iunit = open_file(text_input_file, 'formatted', 'read')
 if (debug) print *, 'opened input file ' // trim(text_input_file)
 
-max_obs    = 68000   ! upper bound on the number of lines in the input file
-num_copies = 4       ! number of variables we'll extract from each observation
-num_qc     = 2       ! two quality control flags: one for missing or bad data, another for
+max_obs    = num_variables*68000   ! upper bound on the number of lines in the input file
+num_copies = 1       ! number of variables we'll extract from each observation
+num_qc     = 1       ! two quality control flags: one for missing or bad data, another for
                      ! values less than the detection limit.
 
 ! call the initialization code, and initialize two empty observation types
@@ -117,7 +117,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
    line_number = line_number + 1
 
    if (rcio /= 0) then 
-      if (debug) print *, 'got bad read code from input file, rcio = ', rcio
+      if (debug) print *, 'got bad read code from input file at line ',line_number,', rcio = ', rcio
       exit obsloop
    endif
 
@@ -237,11 +237,12 @@ obsloop: do    ! no end limit - have the loop break when input ends
    call get_time(time_obs, osec, oday)
    if(debug) call print_date(time_obs, "adding observation at time")
 
-   cycle obsloop ! COMMENT OR DELETE THIS IN ORDER TO ADD OBSERVATIONS
-
    call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
                       o2, POLY_ELECTRODE_OXYGEN, o2_var, &
-                      oday, osec, qc, obs)
+                      oday, osec, qc, obs) ! CRASH OCCURS HERE. This line calls set_obs_values at line 324, which crashes at line
+                                           ! 2396 of obs_sequence_mod.f90. The problem seems to be that obs%values is allocated as 
+                                           ! an array of length 4, but we're trying to assign to it an array of length 1, containing
+                                           ! the value of o2.
    call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
 
    call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
@@ -259,8 +260,6 @@ obsloop: do    ! no end limit - have the loop break when input ends
                       oday, osec, qc, obs)
    call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
 end do obsloop
-
-call EXIT(0)
 
 ! if we added any obs to the sequence, write it out to a file now.
 if ( get_num_obs(obs_seq) > 0 ) then
