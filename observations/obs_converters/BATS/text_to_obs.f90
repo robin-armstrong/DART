@@ -196,7 +196,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
       if(debug) print *, "got bad read code getting lat at line ",line_number,", rcio = ",rcio
       exit obsloop
       
-   else if(lat == -999.0) then
+   else if(abs(lat + 999.0) < 1.0d-8) then
       cycle obsloop ! missing latitude
 
    end if
@@ -206,7 +206,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
       if(debug) print *, "got bad read code getting lon at line ",line_number,", rcio = ",rcio
       exit obsloop
 
-   else if(lon == -999.0) then
+   else if(abs(lon + 999.0) < 1.0d-8) then
       cycle obsloop ! missing longitude
 
    end if
@@ -216,7 +216,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
       if(debug) print *, "got bad read code getting vert at line ",line_number,", rcio = ",rcio
       exit obsloop
 
-   else if(vert == -999.0) then
+   else if(abs(vert + 999.0) < 1.0d-8) then
       cycle obsloop ! missing vertical coordinate
 
    end if
@@ -230,7 +230,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
          if(debug) print *, "got bad read code getting observation type ",otype_index," at line ",line_number,", rcio = ",rcio
          exit obsloop
 
-      else if(ovalue == -999.0) then
+      else if(abs(ovalue + 999.0) < 1.0d-8) then
          cycle otype_loop ! missing observation
 
       end if
