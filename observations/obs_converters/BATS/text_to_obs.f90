@@ -17,7 +17,8 @@ use     utilities_mod, only : initialize_utilities, finalize_utilities, &
                               do_nml_file, do_nml_term
 use  time_manager_mod, only : time_type, set_calendar_type, set_date, &
                               operator(>=), increment_time, get_time, &
-                              operator(-), NOLEAP, operator(+), print_date
+                              operator(-), NOLEAP, GREGORIAN, operator(+), &
+                              print_date
 use      location_mod, only : VERTISHEIGHT, VERTISPRESSURE
 use  obs_sequence_mod, only : obs_sequence_type, obs_type, read_obs_seq, &
                               static_init_obs_sequence, init_obs, write_obs_seq, & 
@@ -81,7 +82,7 @@ if (do_nml_file()) write(nmlfileunit, nml=text_to_obs_nml)
 if (do_nml_term()) write(     *     , nml=text_to_obs_nml)
 
 ! time setup
-call set_calendar_type(NOLEAP)
+call set_calendar_type(GREGORIAN)
 
 ! open input text file
 
@@ -235,8 +236,8 @@ obsloop: do    ! no end limit - have the loop break when input ends
 
       end if
 
-      time_obs = set_date(year, month, day, hour, minute, 0)
-      call get_time(time_obs, osec, oday)
+      time_obs = set_date(year, month, day, hours=hour, minutes=minute)
+      call get_time(time_obs, osec, days=oday)
 
       if(debug) then
          call print_date(time_obs, "adding observation taken on")
