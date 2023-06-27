@@ -168,14 +168,19 @@ type(time_type) :: read_model_time
 integer :: ncid
 character(len=*), parameter :: routine = 'read_model_time'
 real(r8) :: days
+type(time_type) :: mom6_time
+integer :: mom_base_date_in_days, mom_days
 
+mom_base_date_in_days = 139157 ! 1982 1 1 0 0
 ncid = nc_open_file_readonly(filename, routine)
 
-call nc_get_variable(ncid, 'Time', days, filename)
+call nc_get_variable(ncid, 'Time', days, routine)
 
 call nc_close_file(ncid, routine)
+    
+mom_days = int(days) + mom_base_date_in_days
 
-read_model_time = set_time(0, int(days))
+read_model_time = set_time(0,mom_days)
 
 end function read_model_time
 

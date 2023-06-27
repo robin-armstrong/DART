@@ -22,8 +22,8 @@ use  time_manager_mod, only : time_type, set_calendar_type, set_date, &
 use      location_mod, only : VERTISHEIGHT, VERTISPRESSURE
 use  obs_sequence_mod, only : obs_sequence_type, obs_type, read_obs_seq, &
                               static_init_obs_sequence, init_obs, write_obs_seq, & 
-                              init_obs_sequence, get_num_obs, & 
-                              set_copy_meta_data, set_qc_meta_data
+                              init_obs_sequence, get_num_obs, set_copy_meta_data, &
+                              set_qc_meta_data, destroy_obs_sequence
 
 use      obs_kind_mod, only : POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, &
                               CATALYTIC_CARBON, UV_OXY_NITROGEN
@@ -38,7 +38,7 @@ integer, parameter :: OTYPE_ORDERING(NUM_SCALAR_OBS) &
                       = (/POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, CATALYTIC_CARBON, UV_OXY_NITROGEN/)
 
 ! namelist variables, changeable at runtime
-character(len=256) :: text_input_file, obs_out_file
+character(len=256) :: text_input_file, obs_out_dir
 integer :: max_lines, read_starting_at_line, date_firstcol, hourminute_firstcol
 integer :: lat_cols(2), lon_cols(2), vert_cols(2)
 integer :: scalar_obs_cols(2, NUM_SCALAR_OBS)
@@ -47,15 +47,16 @@ logical :: debug
 
 namelist /text_to_obs_nml/ text_input_file, max_lines, read_starting_at_line, date_firstcol, &
                            hourminute_firstcol, lat_cols, lon_cols, vert_cols, scalar_obs_cols, &
-                           obs_uncertainties, obs_out_file, debug
+                           obs_uncertainties, obs_out_dir, debug
 
 ! local variables
-character (len=294) :: input_line
+character (len=294) :: input_line, obs_out_file
+character (len=6)   :: daystr
 
-integer :: oday, osec, rcio, iunit, otype, line_number, otype_index
+integer :: oday, oday_old, osec, rcio, iunit, otype, line_number, otype_index
 integer :: year, month, day, hour, minute, second, hourminute_raw, date_raw
 integer :: num_copies, num_qc, max_obs
-           
+
 logical  :: file_exist, first_obs
 
 real(r8) :: temp, terr, qc, wdir, wspeed, werr
@@ -98,14 +99,6 @@ call static_init_obs_sequence()
 call init_obs(obs,      num_copies, num_qc)
 call init_obs(prev_obs, num_copies, num_qc)
 first_obs = .true.
-
-! create a new, empty obs_seq file.
-call init_obs_sequence(obs_seq, num_copies, num_qc, max_obs)
-
-! the first one needs to contain the string 'observation' and the
-! second needs the string 'QC'.
-call set_copy_meta_data(obs_seq, 1, 'observation')
-call set_qc_meta_data(obs_seq, 1, 'Data QC')
 
 ! Set the DART data quality control.   0 is good data. 
 ! increasingly larger QC values are more questionable quality data.
@@ -248,6 +241,28 @@ obsloop: do    ! no end limit - have the loop break when input ends
          print *, "     observation value: ",ovalue
       end if
 
+      ! if necessary, we start writing to a new obs-sequence file corresponding to a new day
+      if(first_obs .or. (oday /= oday_old)) then
+         ! dumping the observations so far into their own file
+         if ( get_num_obs(obs_seq) > 0 ) then
+            if (debug) print *, 'writing obs_seq, obs_count = ', get_num_obs(obs_seq)
+            call write_obs_seq(obs_seq, obs_out_file)
+         endif
+
+         oday_old = oday
+         write(daystr, "(I6)") oday
+         obs_out_file = trim(obs_out_dir)//"/BATS_"//daystr//".out"
+
+         ! create a new, empty obs_seq file.
+         call destroy_obs_sequence(obs_seq)
+         call init_obs_sequence(obs_seq, num_copies, num_qc, max_obs)
+
+         ! the first one needs to contain the string 'observation' and the
+         ! second needs the string 'QC'.
+         call set_copy_meta_data(obs_seq, 1, 'observation')
+         call set_qc_meta_data(obs_seq, 1, 'Data QC')
+      end if
+
       call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
                          ovalue, OTYPE_ORDERING(otype_index), obs_uncertainties(otype_index), &
                          oday, osec, qc, obs)
@@ -255,12 +270,6 @@ obsloop: do    ! no end limit - have the loop break when input ends
       call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
    end do otype_loop
 end do obsloop
-
-! if we added any obs to the sequence, write it out to a file now.
-if ( get_num_obs(obs_seq) > 0 ) then
-   if (debug) print *, 'writing obs_seq, obs_count = ', get_num_obs(obs_seq)
-   call write_obs_seq(obs_seq, obs_out_file)
-endif
 
 ! end of main program
 call finalize_utilities()
