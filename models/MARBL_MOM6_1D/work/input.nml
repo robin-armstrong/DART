@@ -46,15 +46,15 @@
 
    ens_size                     = 20,
    num_groups                   = 1,
-   perturb_from_single_instance = .true.,
+   perturb_from_single_instance = .true.
    perturbation_amplitude       = 0.001,
    distributed_state            = .true.
 
    async                        = 0,
    adv_ens_command              = "./advance_model.csh",
 
-   obs_sequence_in_name         = "obs_seq.out",
-   obs_sequence_out_name        = "obs_seq.final",
+   obs_sequence_in_name         ='/glade/u/home/rarmstrong/work/BATS_obsseq/out/BATS_142817.out',
+   obs_sequence_out_name        ='/glade/u/home/rarmstrong/work/BATS_obsseq/final/BATS_142817.final',
    num_output_obs_members       = 20,
    init_time_days               = -1,
    init_time_seconds            = -1,
@@ -208,3 +208,12 @@
 
 &location_nml
    /
+
+&utilities_nml
+   TERMLEVEL      = 2,
+   logfilename    = 'dart_log.out',
+   nmlfilename    = 'dart_log.nml',
+   module_details = .true.,
+   print_debug    = .false.,
+   write_nml      = 'file'
+/
