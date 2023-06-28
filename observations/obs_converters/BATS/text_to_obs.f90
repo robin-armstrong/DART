@@ -53,11 +53,11 @@ namelist /text_to_obs_nml/ text_input_file, max_lines, read_starting_at_line, da
 character (len=294) :: input_line, obs_out_file
 character (len=6)   :: daystr
 
-integer :: oday, oday_old, osec, rcio, iunit, otype, line_number, otype_index
+integer :: oday, day_bin, day_bin_old, osec, rcio, iunit, otype, line_number, otype_index
 integer :: year, month, day, hour, minute, second, hourminute_raw, date_raw
 integer :: num_copies, num_qc, max_obs
 
-logical  :: file_exist, first_obs
+logical  :: file_exist, first_obs, new_obs_seq
 
 real(r8) :: temp, terr, qc, wdir, wspeed, werr
 real(r8) :: lat, lon, vert, uwnd, uerr, vwnd, verr, ovalue
@@ -103,6 +103,9 @@ first_obs = .true.
 ! Set the DART data quality control.   0 is good data. 
 ! increasingly larger QC values are more questionable quality data.
 qc = 0.0_r8
+
+! used later to manage splitting of data into obs-sequence files
+day_bin_old = 0
 
 line_number = 0 ! counts the number of lines that have been read so far
 
@@ -241,20 +244,25 @@ obsloop: do    ! no end limit - have the loop break when input ends
          print *, "     observation value: ",ovalue
       end if
 
-      ! if necessary, we start writing to a new obs-sequence file corresponding to a new day
-      if(first_obs .or. (oday /= oday_old)) then
+      ! determining which obs-sequence file to put this observation into
+      day_bin = oday
+      if(osec > 43200) day_bin = day_bin + 1
+      new_obs_seq = (first_obs .or. (day_bin /= day_bin_old))
+      day_bin_old = day_bin
+
+      ! if necessary, saving the old observation sequence and beginning a new one.
+      if(new_obs_seq) then
          ! dumping the observations so far into their own file
-         if ( get_num_obs(obs_seq) > 0 ) then
+         if ( (.not. first_obs) .and. (get_num_obs(obs_seq) > 0) ) then
             if (debug) print *, 'writing obs_seq, obs_count = ', get_num_obs(obs_seq)
             call write_obs_seq(obs_seq, obs_out_file)
+            call destroy_obs_sequence(obs_seq)
          endif
 
-         oday_old = oday
-         write(daystr, "(I6)") oday
+         write(daystr, "(I6)") day_bin
          obs_out_file = trim(obs_out_dir)//"/BATS_"//daystr//".out"
 
          ! create a new, empty obs_seq file.
-         call destroy_obs_sequence(obs_seq)
          call init_obs_sequence(obs_seq, num_copies, num_qc, max_obs)
 
          ! the first one needs to contain the string 'observation' and the
@@ -270,6 +278,14 @@ obsloop: do    ! no end limit - have the loop break when input ends
       call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
    end do otype_loop
 end do obsloop
+
+! putting any remaining observations into an obs sequence file
+
+if ( (.not. first_obs) .and. (get_num_obs(obs_seq) > 0) ) then
+   if (debug) print *, 'writing obs_seq, obs_count = ', get_num_obs(obs_seq)
+   call write_obs_seq(obs_seq, obs_out_file)
+   call destroy_obs_sequence(obs_seq)
+endif
 
 ! end of main program
 call finalize_utilities()
