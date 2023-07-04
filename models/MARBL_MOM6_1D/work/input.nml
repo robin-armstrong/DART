@@ -30,13 +30,13 @@
 &filter_nml
    single_file_in               = .false.,
    input_state_files            = ''
-   input_state_file_list        = 'filter_input_list.txt'
+   input_state_file_list        = 'ensemble_members.txt'
 
    stages_to_write  = 'output'
 
    single_file_out              = .false.,
    output_state_files           = ''
-   output_state_file_list       = 'filter_output_list.txt'
+   output_state_file_list       = 'ensemble_members.txt'
    output_interval              = 1,
    output_members               = .true.
    num_output_state_members     = 20,
@@ -44,17 +44,17 @@
    output_sd                    = .true.
    write_all_stages_at_end      = .false.
 
-   ens_size                     = 20,
+   ens_size                     = 15,
    num_groups                   = 1,
    perturb_from_single_instance = .true.
-   perturbation_amplitude       = 0.001,
+   perturbation_amplitude       = 1e-9,
    distributed_state            = .true.
 
    async                        = 0,
    adv_ens_command              = "./advance_model.csh",
 
-   obs_sequence_in_name         ='/glade/u/home/rarmstrong/work/BATS_obsseq/out/BATS_142817.out',
-   obs_sequence_out_name        ='/glade/u/home/rarmstrong/work/BATS_obsseq/final/BATS_142817.final',
+   obs_sequence_in_name         ='/glade/u/home/rarmstrong/work/BATS_obsseq/out/BATS_142836.out',
+   obs_sequence_out_name        ='/glade/u/home/rarmstrong/work/BATS_obsseq/final/BATS_142836.final',
    num_output_obs_members       = 20,
    init_time_days               = -1,
    init_time_seconds            = -1,
@@ -117,7 +117,7 @@
    assimilate_these_obs_types = 'POLY_ELECTRODE_OXYGEN',
                                 'TITRATION_ALKALINITY',
                                 'CATALYTIC_CARBON',
-                                'UV_OXY_NITROGEN'
+                                'UV_OXY_NITROGEN',
    evaluate_these_obs_types   = ''
    /
 
@@ -208,12 +208,3 @@
 
 &location_nml
    /
-
-&utilities_nml
-   TERMLEVEL      = 2,
-   logfilename    = 'dart_log.out',
-   nmlfilename    = 'dart_log.nml',
-   module_details = .true.,
-   print_debug    = .false.,
-   write_nml      = 'file'
-/

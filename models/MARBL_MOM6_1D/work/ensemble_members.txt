@@ -1,0 +1,15 @@
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0001/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0002/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0003/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0004/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0005/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0006/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0007/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0008/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0009/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0010/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0011/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0012/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0013/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0014/MOM.res.nc
+/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/RESTART/DART_ensemble/member_0015/MOM.res.nc
