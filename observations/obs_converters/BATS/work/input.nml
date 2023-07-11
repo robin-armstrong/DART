@@ -16,7 +16,7 @@
                            10.0,          ! with the i^th observation variable. Ordering of observation
                            0.4,            ! variables is defined by the OTYPE_ORDERING parameter in
                            0.02             ! text_to_obs.f90.
-   obs_out_dir           = '../../../../../BATS_obsseq/out',
+   obs_out_dir           = '../../../../../BATS_obsseq',
    debug                 = .true.
   /
 
