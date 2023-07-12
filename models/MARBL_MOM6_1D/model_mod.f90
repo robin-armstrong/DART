@@ -75,7 +75,8 @@ public :: get_model_size,         &
           write_model_time
 
 
-character(len=256), parameter :: source   = "model_mod.f90"
+character(len=256), parameter :: source = "model_mod.f90"
+character(len=256), parameter :: ocean_geometry = "/glade/work/rarmstrong/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/ensemble/baseline/ocean_geometry.nc"
 logical :: module_initialized = .false.
 integer :: dom_id  ! used to access the state structure
 integer :: nfields ! number of fields in the state vector
@@ -84,7 +85,8 @@ integer :: model_size
 type(time_type) :: assimilation_time_step
 real(r8) :: geolon(2,2), geolat(2,2),     & ! Although this model is "single column," MOM6 actually represents the
             geolon_u(2,2), geolat_u(2,2), & ! column using four identical columns in a 2 x 2 grid,
-            geolon_v(2,2), geolat_v(2,2)
+            geolon_v(2,2), geolat_v(2,2), &
+            basin_depth(2,2)
 
 ! parameters to be used in specifying the DART internal state
 integer, parameter :: modelvar_table_height = 13
@@ -153,7 +155,8 @@ dom_id = add_domain(template_file, nfields, &
                     update_list = update_var_list(1:nfields))
 
 model_size = get_domain_size(dom_id)
-call read_num_layers ! setting the value of nz
+call read_num_layers     ! setting the value of nz
+call read_ocean_geometry ! determining the basin depth
 
 end subroutine static_init_model
 
@@ -220,7 +223,7 @@ integer,            intent(out) :: istatus(ens_size)
 integer     :: qty_id, thickness_id, layer_index
 integer(i8) :: qty_index, thickness_index, ens_index
 real(8)     :: requested_depth, layerdepth_bottom, layerdepth_center, &
-               depth_below, depth_above, val_below, val_above
+               layerdepth_top, depth_below, depth_above, val_below, val_above
 real(8)     :: layer_thicknesses(nz, ens_size)
 real(8)     :: state_slice(ens_size)
 real(8)     :: loc_temp(3)
@@ -247,39 +250,43 @@ end do
 
 ! performing the interpolation for each ensemble member individually.
 do ens_index = 1, ens_size
-
+    ! print *, "BASIN DEPTH     = ",-basin_depth(1,1)
     ! print *, "----------------------------------------------------"
     ! print *, "computing centers of layers"
     ! print *, "----------------------------------------------------"
 
-    ! locating the layer index to be used as the lower interpolation point for this ensemble member.
-    layer_index = 1
-    layerdepth_bottom = layer_thicknesses(1, ens_index) ! depth at bottom of the layer given by layer_index.
-    layerdepth_center = 0.5 * layerdepth_bottom         ! depth at center of the layer given by layer_index.
+    ! locating the layer index to be used as the upper interpolation point for this ensemble member.
+    layer_index = nz
+    layerdepth_bottom = -basin_depth(1,1)       ! depth at bottom of the layer given by layer_index.
+    layerdepth_center = layerdepth_bottom &     ! depth at center of the layer given by layer_index.
+                          + .5*layer_thicknesses(layer_index, ens_index)
+    layerdepth_top = layerdepth_bottom &        ! depth at top of the layer given by layer_index.
+                          + layer_thicknesses(layer_index, ens_index)
 
-    ! print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom
+    ! print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom,", top = ",layerdepth_top
     
-    do while((layerdepth_center < requested_depth) .and. (layer_index < nz))
-        layer_index = layer_index + 1
+    do while((layerdepth_center < requested_depth) .and. (layer_index > 1))
+        layer_index = layer_index - 1
         layerdepth_bottom = layerdepth_bottom + layer_thicknesses(layer_index, ens_index)
-        layerdepth_center = layerdepth_bottom - 0.5 * layer_thicknesses(layer_index, ens_index)
+        layerdepth_center = layerdepth_bottom + 0.5 * layer_thicknesses(layer_index, ens_index)
+        layerdepth_top = layerdepth_bottom + layer_thicknesses(layer_index, ens_index)
 
-        ! print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom
+        ! print *, "layer = ",layer_index,", bottom = ",layerdepth_bottom,", center = ",layerdepth_center,", top = ",layerdepth_top
 
     end do
 
-    ! having located the index of the bottom interpolation layer, we now calculate the interpolation.
-    if((requested_depth < 0) .or. (layerdepth_bottom < requested_depth)) then
-        ! case where the requested depth is negative or exceeds the maximum grid depth.
+    ! having located the index of the upper interpolation layer, we now calculate the interpolation.
+    if((requested_depth < -basin_depth(1,1)) .or. (layerdepth_top < requested_depth)) then
+        ! case where the requested depth is below the ocean floor, or above the ocean surface
 
         ! print *, "----------------------------------------------------"
-        ! print *, "depth is negative or exceeds max grid depth"
+        ! print *, "depth is below ocean floor or above ocean surface"
         ! print *, "----------------------------------------------------"
 
         istatus(ens_index) = 1
         expected_obs(ens_index) = MISSING_R8
 
-    else if((layerdepth_center < requested_depth) .or. (layer_index == 1)) then
+    else if((layer_index == nz) .or. (layerdepth_center < requested_depth)) then
         ! case where the requested depth is either in the bottom half of the deepest layer,
         ! or the top half of the shallowest layer. In both cases, the "interpolated" value is
         ! simply the current value of that layer in MOM6.
@@ -301,23 +308,23 @@ do ens_index = 1, ens_size
         ! and below.
 
         ! print *, "----------------------------------------------------"
-        ! print *, "interpolating between layers ",(layer_index - 1)," and ",layer_index
+        ! print *, "interpolating between layers ",layer_index," and ",(layer_index + 1)
 
         istatus(ens_index) = 0
 
         ! computing the depths at the centers of the nearest layers above and below
-        depth_below = layerdepth_center
-        depth_above = layerdepth_bottom - layer_thicknesses(layer_index, ens_index) &
-                                        - .5*layer_thicknesses(layer_index - 1, ens_index)
+        depth_above = layerdepth_center
+        depth_below = layerdepth_top - layer_thicknesses(layer_index, ens_index) &
+                                        - .5*layer_thicknesses(layer_index + 1, ens_index)
         
         ! extracting the quantity values at the layers above and below
         qty_index = get_dart_vector_index(1, 1, layer_index, dom_id, qty_id)
         state_slice = get_state(qty_index, state_handle)
-        val_below = state_slice(ens_index)
-
-        qty_index = get_dart_vector_index(1, 1, layer_index - 1, dom_id, qty_id)
-        state_slice = get_state(qty_index, state_handle)
         val_above = state_slice(ens_index)
+
+        qty_index = get_dart_vector_index(1, 1, layer_index + 1, dom_id, qty_id)
+        state_slice = get_state(qty_index, state_handle)
+        val_below = state_slice(ens_index)
 
         ! print *, "corresponding to the values: ",val_above," and ",val_below
         ! print *, "----------------------------------------------------"
@@ -599,6 +606,26 @@ call nc_get_variable_size(ncid, 'Layer', nz)
 call nc_close_file(ncid)
 
 end subroutine read_num_layers
+
+!------------------------------------------------------------
+! ocean_geom are 2D state sized static data
+! HK Do these arrays become too big in high res cases?
+subroutine read_ocean_geometry()
+
+integer :: ncid
+
+character(len=*), parameter :: routine = 'read_ocean_geometry'
+
+! Need nx, ny
+if ( .not. module_initialized ) call static_init_model
+
+ncid = nc_open_file_readonly(ocean_geometry)
+
+call nc_get_variable(ncid, 'D', basin_depth, routine)
+
+call nc_close_file(ncid)
+
+end subroutine read_ocean_geometry
 
 !===================================================================
 ! End of model_mod

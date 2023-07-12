@@ -44,17 +44,17 @@
    output_sd                    = .true.
    write_all_stages_at_end      = .false.
 
-   ens_size                     = 5,
+   ens_size                     = 30,
    num_groups                   = 1,
-   perturb_from_single_instance = .false.
+   perturb_from_single_instance = .true.
    perturbation_amplitude       = 1e-9,
    distributed_state            = .true.
 
    async                        = 0,
    adv_ens_command              = "./advance_model.csh",
 
-   obs_sequence_in_name         ='/glade/u/home/rarmstrong/work/BATS_obsseq/out/BATS_142818.out',
-   obs_sequence_out_name        ='/glade/u/home/rarmstrong/work/BATS_obsseq/final/BATS_142818.final',
+   obs_sequence_in_name         ='/glade/u/home/rarmstrong/work/BATS_obsseq/out/BATS_142817.out',
+   obs_sequence_out_name        ='/glade/u/home/rarmstrong/work/BATS_obsseq/final/BATS_142817.final',
    num_output_obs_members       = 20,
    init_time_days               = -1,
    init_time_seconds            = -1,
