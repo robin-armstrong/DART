@@ -83,10 +83,9 @@ integer :: nfields ! number of fields in the state vector
 integer :: nz      ! the number of vertical layers
 integer :: model_size
 type(time_type) :: assimilation_time_step
-real(r8) :: geolon(2,2), geolat(2,2),     & ! Although this model is "single column," MOM6 actually represents the
-            geolon_u(2,2), geolat_u(2,2), & ! column using four identical columns in a 2 x 2 grid,
-            geolon_v(2,2), geolat_v(2,2), &
-            basin_depth(2,2)
+real(r8), parameter :: geolon = 360 - 64.0
+real(r8), parameter :: geolat = 31.0
+real(r8) :: basin_depth(2,2)
 
 ! parameters to be used in specifying the DART internal state
 integer, parameter :: modelvar_table_height = 13
@@ -132,6 +131,7 @@ call register_module(source)
 
 call find_namelist_in_file("input.nml", "model_nml", iunit)
 read(iunit, nml = model_nml, iostat = io)
+
 call check_namelist_read(iunit, io, "model_nml")
 
 ! Record the namelist values used for the run 
@@ -155,6 +155,7 @@ dom_id = add_domain(template_file, nfields, &
                     update_list = update_var_list(1:nfields))
 
 model_size = get_domain_size(dom_id)
+
 call read_num_layers     ! setting the value of nz
 call read_ocean_geometry ! determining the basin depth
 
@@ -374,9 +375,7 @@ if ( .not. module_initialized ) call static_init_model
 
 call get_model_variable_indices(index_in, lon_index, lat_index, level, kind_index=local_qty)
 
-call get_lon_lat(lon_index, lat_index, local_qty, lon, lat)
-
-location = set_location(lon, lat, real(level,r8), VERTISLEVEL)
+location = set_location(geolon, geolat, real(level,r8), VERTISLEVEL)
 
 if (present(qty)) then
     qty = local_qty
@@ -502,7 +501,7 @@ MyLoop : do i = 1, nrows
     varname = trim(state_variables(3*i -2))
     dartstr = trim(state_variables(3*i -1))
     update  = trim(state_variables(3*i   ))
-    
+
     call to_upper(update)
 
     table(i,1) = trim(varname)
@@ -542,26 +541,6 @@ enddo MyLoop
 
 
 end subroutine verify_state_variables
-
-!------------------------------------------------------------
-! longitude and latitide values from indices
-subroutine get_lon_lat(lon_indx, lat_indx, qty, lon, lat)
-
-integer, intent(in) :: lon_indx, lat_indx, qty
-real(r8) :: lon, lat
-
-if (on_u_grid(qty)) then
-    lon = geolon_u(lon_indx, lat_indx)
-    lat = geolat_u(lon_indx, lat_indx)
-elseif (on_v_grid(qty)) then
-    lon = geolon_v(lon_indx, lat_indx)
-    lat = geolat_v(lon_indx, lat_indx)
-else ! T grid
-    lon = geolon(lon_indx, lat_indx)
-    lat = geolat(lon_indx, lat_indx)
-endif
-
-end subroutine get_lon_lat
 
 !------------------------------------------------------------
 function on_v_grid(qty)

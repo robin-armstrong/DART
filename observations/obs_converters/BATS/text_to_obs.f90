@@ -188,34 +188,16 @@ obsloop: do    ! no end limit - have the loop break when input ends
 
    ! extracting the observation location
 
-   read(input_line(lat_cols(1):lat_cols(2)), *, iostat=rcio) lat
-   if(rcio /= 0) then
-      if(debug) print *, "got bad read code getting lat at line ",line_number,", rcio = ",rcio
-      exit obsloop
-      
-   else if(abs(lat + 999.0) < 1.0d-8) then
-      cycle obsloop ! missing latitude
-
-   end if
-
-   read(input_line(lon_cols(1):lon_cols(2)), *, iostat=rcio) lon
-   if(rcio /= 0) then
-      if(debug) print *, "got bad read code getting lon at line ",line_number,", rcio = ",rcio
-      exit obsloop
-
-   else if(abs(lon + 999.0) < 1.0d-8) then
-      cycle obsloop ! missing longitude
-
-   end if
-
    read(input_line(vert_cols(1):vert_cols(2)), *, iostat=rcio) vert
    if(rcio /= 0) then
       if(debug) print *, "got bad read code getting vert at line ",line_number,", rcio = ",rcio
       exit obsloop
 
    else if(abs(vert + 999.0) < 1.0d-8) then
-      cycle obsloop ! missing vertical coordinate
+      cycle obsloop  ! missing vertical coordinate
 
+   else
+      vert = -vert   ! MOM6 depth coordinate becomes negative as you increase depth
    end if
 
    ! extracting the observation values
@@ -238,8 +220,6 @@ obsloop: do    ! no end limit - have the loop break when input ends
       if(debug) then
          call print_date(time_obs, "adding observation taken on")
          print *, " \__ observation type:  ",OTYPE_ORDERING(otype_index)
-         print *, "     lat:               ",lat
-         print *, "     lon:               ",lon
          print *, "     vert:              ",vert
          print *, "     observation value: ",ovalue
       end if
@@ -257,6 +237,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
             if (debug) print *, 'writing obs_seq, obs_count = ', get_num_obs(obs_seq)
             call write_obs_seq(obs_seq, obs_out_file)
             call destroy_obs_sequence(obs_seq)
+            first_obs = .true.
          endif
 
          write(daystr, "(I6)") day_bin
@@ -271,7 +252,7 @@ obsloop: do    ! no end limit - have the loop break when input ends
          call set_qc_meta_data(obs_seq, 1, 'Data QC')
       end if
 
-      call create_3d_obs(lat, lon, vert, VERTISHEIGHT, &
+      call create_3d_obs(31.0_r8, 64.0_r8, vert, VERTISHEIGHT, &
                          ovalue, OTYPE_ORDERING(otype_index), obs_uncertainties(otype_index), &
                          oday, osec, qc, obs)
 
