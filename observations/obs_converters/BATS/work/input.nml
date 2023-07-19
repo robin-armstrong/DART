@@ -10,12 +10,18 @@
    vert_cols             = 58, 63
    scalar_obs_cols       = 102, 107,            ! i^th row of this table should list the first and last
                            134, 139,            ! columns where the value of the i^th observation variable
-                           192, 197,            ! is recorded. Ordering of observation variables is defined
-                           201, 206             ! by the OTYPE_ORDERING parameter in text_to_obs.f90.
-   obs_uncertainties     = 2.0,           ! i^th entry of this list gives the uncertainty associated
-                           10.0,          ! with the i^th observation variable. Ordering of observation
-                           0.4,            ! variables is defined by the OTYPE_ORDERING parameter in
-                           0.02             ! text_to_obs.f90.
+                           141, 147,            ! is recorded. Ordering of observation variables is defined
+                           158, 164,            ! by the OTYPE_ORDERING parameter in text_to_obs.f90.
+                           166, 172,
+                           192, 197,
+                           201, 206
+   obs_uncertainties     = 0.3,           ! i^th entry of this list gives the uncertainty associated
+                           0.3,          ! with the i^th observation variable. Ordering of observation
+                           0.3,           ! variables is defined by the OTYPE_ORDERING parameter in
+                           0.3,          ! text_to_obs.f90.
+                           0.3,
+                           0.3,
+                           0.3
    obs_out_dir           = '../../../../../BATS_obsseq',
    debug                 = .true.
   /

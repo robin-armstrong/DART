@@ -74,7 +74,7 @@ character(len=*), parameter :: source = 'threed_sphere/obs_diag.f90'
 
 !---------------------------------------------------------------------
 
-integer, parameter :: MaxLevels  = 50
+integer, parameter :: MaxLevels  = 70
 integer, parameter :: MaxRegions = 50
 integer, parameter :: MaxTrusted = 50
 integer, parameter :: stringlength = 32

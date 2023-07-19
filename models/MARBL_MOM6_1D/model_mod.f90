@@ -89,10 +89,7 @@ real(r8) :: basin_depth(2,2)
 
 ! parameters to be used in specifying the DART internal state
 integer, parameter :: modelvar_table_height = 13
-integer, parameter :: modelvar_table_width = 3
-integer, parameter :: varname_index = 1
-integer, parameter :: varqty_index = 2
-integer, parameter :: varupdate_index = 3
+integer, parameter :: modelvar_table_width = 5
 
 ! defining the variables that will be read from the namelist
 character(len=256) :: template_file
@@ -120,6 +117,7 @@ subroutine static_init_model()
 integer :: iunit, io
 character(len=vtablenamelength) :: variable_table(modelvar_table_height, modelvar_table_width) 
 integer :: state_qty_list(modelvar_table_height)
+real(r8):: state_clamp_vals(modelvar_table_height, 2)
 logical :: update_var_list(modelvar_table_height)
 
 module_initialized = .true.
@@ -147,11 +145,17 @@ assimilation_time_step = set_time(time_step_seconds, &
                                   time_step_days)
 
 call verify_state_variables(model_state_variables, nfields, variable_table, &
-                            state_qty_list, update_var_list)
+                            state_qty_list, state_clamp_vals, update_var_list)
+
+! print *, "variable_table   = ",variable_table
+! print *, "state_qty_list   = ",state_qty_list
+! print *, "state_clamp_vals = ",state_clamp_vals
+! print *, "update_var_list  = ",update_var_list
 
 dom_id = add_domain(template_file, nfields, &
-                    var_names = variable_table(1:nfields, varname_index), &
+                    var_names = variable_table(1:nfields, 1), &
                     kind_list = state_qty_list(1:nfields), &
+                    clamp_vals = state_clamp_vals, &
                     update_list = update_var_list(1:nfields))
 
 model_size = get_domain_size(dom_id)
@@ -478,16 +482,17 @@ end subroutine nc_write_model_atts
 !
 ! netcdf_variable_name ; dart_qty_string ; update_string
 
-subroutine verify_state_variables(state_variables, ngood, table, qty_list, update_var)
+subroutine verify_state_variables(state_variables, ngood, table, qty_list, clamp_vals, update_var)
 
 character(len=*),  intent(inout) :: state_variables(:)
 integer,           intent(out) :: ngood
 character(len=*),  intent(out) :: table(:,:)
 integer,           intent(out) :: qty_list(:)   ! kind number
+real(r8),          intent(out) :: clamp_vals(:,:)
 logical,           intent(out) :: update_var(:) ! logical update
 
 integer :: nrows, i
-character(len=NF90_MAX_NAME) :: varname, dartstr, update
+character(len=NF90_MAX_NAME) :: varname, dartstr, lowerbound, upperbound, update
 character(len=256) :: string1, string2
 
 if ( .not. module_initialized ) call static_init_model
@@ -498,19 +503,23 @@ ngood = 0
 
 MyLoop : do i = 1, nrows
 
-    varname = trim(state_variables(3*i -2))
-    dartstr = trim(state_variables(3*i -1))
-    update  = trim(state_variables(3*i   ))
+    varname =    trim(state_variables(5*i -4))
+    dartstr =    trim(state_variables(5*i -3))
+    lowerbound = trim(state_variables(5*i -2))
+    upperbound = trim(state_variables(5*i -1))
+    update  =    trim(state_variables(5*i   ))
 
     call to_upper(update)
 
     table(i,1) = trim(varname)
     table(i,2) = trim(dartstr)
-    table(i,3) = trim(update)
+    table(i,3) = trim(lowerbound)
+    table(i,4) = trim(upperbound)
+    table(i,5) = trim(update)
 
-    if ( table(i,1) == ' ' .and. table(i,2) == ' ' .and. table(i,3) == ' ') exit MyLoop ! Found end of list.
+    if ( table(i,1) == ' ' .and. table(i,2) == ' ' .and. table(i,3) == ' ' .and. table(i,4) == ' ' .and. table(i,5) == ' ') exit MyLoop ! Found end of list.
 
-    if ( table(i,1) == ' ' .or. table(i,2) == ' ' .or. table(i,3) == ' ' ) then
+    if ( table(i,1) == ' ' .or. table(i,2) == ' ' .or. table(i,3) == ' ' .or. table(i,4) == ' ' .or. table(i,5) == ' ') then
         string1 = 'model_nml:model_state_variables not fully specified'
         call error_handler(E_ERR,'verify_state_variables',string1)
     endif
@@ -535,6 +544,20 @@ MyLoop : do i = 1, nrows
             write(string2,'(6A)') 'you provided : ', trim(varname), ', ', trim(dartstr), ', ', trim(update)
             call error_handler(E_ERR,'verify_state_variables',string1, text2=string2)
     end select
+
+    ! reading the clamp values
+
+    if (table(i, 3) /= 'NA') then
+        read(table(i,3), '(d16.8)') clamp_vals(i,1)
+    else
+        clamp_vals(i,1) = MISSING_R8
+    endif
+    
+    if (table(i,4) /= 'NA') then
+        read(table(i,4), '(d16.8)') clamp_vals(i,2)
+    else
+        clamp_vals(i,2) = MISSING_R8
+    endif
 
     ngood = ngood + 1
 enddo MyLoop

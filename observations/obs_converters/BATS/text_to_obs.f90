@@ -26,23 +26,27 @@ use  obs_sequence_mod, only : obs_sequence_type, obs_type, read_obs_seq, &
                               set_qc_meta_data, destroy_obs_sequence
 
 use      obs_kind_mod, only : POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, &
-                              CATALYTIC_CARBON, UV_OXY_NITROGEN
+                              CATALYTIC_CARBON, UV_OXY_NITROGEN, CFA_NITRATE, &
+                              CFA_SILICATE, CFA_PHOSPHATE
 
 implicit none
 
-integer, parameter :: NUM_SCALAR_OBS = 4  ! maximum number of scalar observation variables that will
+integer, parameter :: NUM_SCALAR_OBS = 7  ! maximum number of scalar observation variables that will
                                           ! be assimilated at each observation.
 
 ! this array defines the order in which observations are read from the file
 integer, parameter :: OTYPE_ORDERING(NUM_SCALAR_OBS) &
-                      = (/POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, CATALYTIC_CARBON, UV_OXY_NITROGEN/)
+                      = (/POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, CFA_NITRATE, CFA_PHOSPHATE, &
+                          CFA_SILICATE, CATALYTIC_CARBON, UV_OXY_NITROGEN/)
+
+real(r8), parameter :: MIN_OBS_ERROR = 0.1_r8
 
 ! namelist variables, changeable at runtime
 character(len=256) :: text_input_file, obs_out_dir
 integer :: max_lines, read_starting_at_line, date_firstcol, hourminute_firstcol
 integer :: lat_cols(2), lon_cols(2), vert_cols(2)
 integer :: scalar_obs_cols(2, NUM_SCALAR_OBS)
-real(8) :: obs_uncertainties(NUM_SCALAR_OBS)
+real(r8) :: obs_uncertainties(NUM_SCALAR_OBS)
 logical :: debug
 
 namelist /text_to_obs_nml/ text_input_file, max_lines, read_starting_at_line, date_firstcol, &
@@ -56,11 +60,14 @@ character (len=6)   :: daystr
 integer :: oday, day_bin, day_bin_old, osec, rcio, iunit, otype, line_number, otype_index
 integer :: year, month, day, hour, minute, second, hourminute_raw, date_raw
 integer :: num_copies, num_qc, max_obs
+integer :: num_processed(NUM_SCALAR_OBS)
 
 logical  :: file_exist, first_obs, new_obs_seq
 
-real(r8) :: temp, terr, qc, wdir, wspeed, werr
+real(r8) :: temp, terr, qc, wdir, wspeed, werr, obs_err
 real(r8) :: lat, lon, vert, uwnd, uerr, vwnd, verr, ovalue
+real(r8) :: running_sum(NUM_SCALAR_OBS), running_sqsum(NUM_SCALAR_OBS), &
+            maxvals(NUM_SCALAR_OBS), minvals(NUM_SCALAR_OBS)
 
 ! the uncertainties corresponding to the observations above
 
@@ -100,14 +107,21 @@ call init_obs(obs,      num_copies, num_qc)
 call init_obs(prev_obs, num_copies, num_qc)
 first_obs = .true.
 
-! Set the DART data quality control.   0 is good data. 
-! increasingly larger QC values are more questionable quality data.
+! Set the DART data quality control.
 qc = 0.0_r8
 
 ! used later to manage splitting of data into obs-sequence files
 day_bin_old = 0
 
 line_number = 0 ! counts the number of lines that have been read so far
+
+do otype_index = 1, NUM_SCALAR_OBS
+   running_sum(otype_index)   = 0.0_r8      ! these arrays will be used to compute means,
+   running_sqsum(otype_index) = 0.0_r8      ! variances, mins, and max's of observation values.
+   num_processed(otype_index) = 0
+   maxvals(otype_index)       = 0.0_r8
+   minvals(otype_index)       = 100000.0_r8
+end do
 
 obsloop: do    ! no end limit - have the loop break when input ends
    ! read in entire text line into a buffer
@@ -224,6 +238,12 @@ obsloop: do    ! no end limit - have the loop break when input ends
          print *, "     observation value: ",ovalue
       end if
 
+      num_processed(otype_index) = num_processed(otype_index) + 1
+      running_sum(otype_index)   = running_sum(otype_index) + ovalue
+      running_sqsum(otype_index) = running_sqsum(otype_index) + ovalue**2
+      maxvals(otype_index)       = max(maxvals(otype_index), ovalue)
+      minvals(otype_index)       = min(minvals(otype_index), ovalue)
+
       ! determining which obs-sequence file to put this observation into
       day_bin = oday
       if(osec > 43200) day_bin = day_bin + 1
@@ -252,8 +272,10 @@ obsloop: do    ! no end limit - have the loop break when input ends
          call set_qc_meta_data(obs_seq, 1, 'Data QC')
       end if
 
+      obs_err = max(obs_uncertainties(otype_index)*ovalue, MIN_OBS_ERROR)
+
       call create_3d_obs(31.0_r8, 64.0_r8, vert, VERTISHEIGHT, &
-                         ovalue, OTYPE_ORDERING(otype_index), obs_uncertainties(otype_index), &
+                         ovalue, OTYPE_ORDERING(otype_index), obs_err, &
                          oday, osec, qc, obs)
 
       call add_obs_to_seq(obs_seq, obs, time_obs, prev_obs, prev_time, first_obs)
@@ -267,6 +289,21 @@ if ( (.not. first_obs) .and. (get_num_obs(obs_seq) > 0) ) then
    call write_obs_seq(obs_seq, obs_out_file)
    call destroy_obs_sequence(obs_seq)
 endif
+
+print *, ""
+print *, "SUMMARY:"
+print *, ""
+
+do otype_index = 1, NUM_SCALAR_OBS
+   print *, "observation type: ",OTYPE_ORDERING(otype_index)
+   print *, "\__ total observations: ",num_processed(otype_index)
+   print *, "    mean:               ",running_sum(otype_index)/num_processed(otype_index)
+   print *, "    variance:           ",running_sqsum(otype_index)/num_processed(otype_index) &
+                                           - (running_sum(otype_index)/num_processed(otype_index))**2
+   print *, "    maximum value:      ",maxvals(otype_index)
+   print *, "    minimum value:      ",minvals(otype_index)
+   print *, ""
+end do
 
 ! end of main program
 call finalize_utilities()

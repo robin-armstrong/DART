@@ -118,6 +118,9 @@
                                 'TITRATION_ALKALINITY',
                                 'CATALYTIC_CARBON',
                                 'UV_OXY_NITROGEN',
+                                'CFA_NITRATE',
+                                'CFA_SILICATE',
+                                'CFA_PHOSPHATE'
    evaluate_these_obs_types   = ''
    /
 
@@ -125,19 +128,19 @@
    template_file = '/glade/u/home/rarmstrong/work/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/ensemble/member_0001/RESTART/MOM.res.nc'
    time_step_days      = 1,
    time_step_seconds   = 0,
-   model_state_variables = 'NO3      ', 'QTY_NITRATE_CONCENTRATION     ', 'UPDATE      ',
-                           'SiO3     ', 'QTY_DISSOLVED_INORGANIC_SIO3  ', 'UPDATE      ',
-                           'PO4      ', 'QTY_PHOSPHATE_CONCENTRATION   ', 'UPDATE      ',
-                           'Fe       ', 'QTY_DISSOLVED_INORGANIC_IRON  ', 'UPDATE      ',
-                           'DIC      ', 'QTY_DISSOLVED_INORGANIC_CARBON', 'UPDATE      ',
-                           'O2       ', 'QTY_DISSOLVED_OXYGEN          ', 'UPDATE      ',
-                           'DOC      ', 'QTY_DISSOLVED_ORGANIC_CARBON  ', 'UPDATE      ',
-                           'DON      ', 'QTY_DISSOLVED_ORGANIC_NITROGEN', 'UPDATE      ',
-                           'DOP      ', 'QTY_DISSOLVED_ORGANIC_P       ', 'UPDATE      ',
-                           'ALK      ', 'QTY_ALKALINITY                ', 'UPDATE      ',
-                           'microzooC', 'QTY_MICROZOOPLANKTON_CARBON   ', 'UPDATE      ',
-                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON    ', 'UPDATE      ',
-                           'h        ', 'QTY_LAYER_THICKNESS           ', 'NO_COPY_BACK'
+   model_state_variables = 'NO3      ', 'QTY_NITRATE_CONCENTRATION     ', '0.0', 'NA', 'UPDATE      ',
+                           'SiO3     ', 'QTY_DISSOLVED_INORGANIC_SIO3  ', '0.0', 'NA', 'UPDATE      ',
+                           'PO4      ', 'QTY_PHOSPHATE_CONCENTRATION   ', '0.0', 'NA', 'UPDATE      ',
+                           'Fe       ', 'QTY_DISSOLVED_INORGANIC_IRON  ', '0.0', 'NA', 'UPDATE      ',
+                           'DIC      ', 'QTY_DISSOLVED_INORGANIC_CARBON', '0.0', 'NA', 'UPDATE      ',
+                           'O2       ', 'QTY_DISSOLVED_OXYGEN          ', '0.0', 'NA', 'UPDATE      ',
+                           'DOC      ', 'QTY_DISSOLVED_ORGANIC_CARBON  ', '0.0', 'NA', 'UPDATE      ',
+                           'DON      ', 'QTY_DISSOLVED_ORGANIC_NITROGEN', '0.0', 'NA', 'UPDATE      ',
+                           'DOP      ', 'QTY_DISSOLVED_ORGANIC_P       ', '0.0', 'NA', 'UPDATE      ',
+                           'ALK      ', 'QTY_ALKALINITY                ', '0.0', 'NA', 'UPDATE      ',
+                           'microzooC', 'QTY_MICROZOOPLANKTON_CARBON   ', '0.0', 'NA', 'UPDATE      ',
+                           'mesozooC ', 'QTY_MESOZOOPLANKTON_CARBON    ', '0.0', 'NA', 'UPDATE      ',
+                           'h        ', 'QTY_LAYER_THICKNESS           ', '0.0', 'NA', 'NO_COPY_BACK'
    /
 
 &utilities_nml
