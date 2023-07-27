@@ -15,13 +15,13 @@
                            166, 172,
                            192, 197,
                            201, 206
-   obs_uncertainties     = 0.3,           ! i^th entry of this list gives the uncertainty associated
-                           0.3,          ! with the i^th observation variable. Ordering of observation
-                           0.3,           ! variables is defined by the OTYPE_ORDERING parameter in
-                           0.3,          ! text_to_obs.f90.
-                           0.3,
-                           0.3,
-                           0.3
+   obs_uncertainties     = 0.2,           ! i^th entry of this list gives the uncertainty associated
+                           0.2,          ! with the i^th observation variable. Ordering of observation
+                           0.2,           ! variables is defined by the OTYPE_ORDERING parameter in
+                           0.2,          ! text_to_obs.f90.
+                           0.2,
+                           0.2,
+                           0.2
    obs_out_dir           = '../../../../../BATS_obsseq',
    debug                 = .true.
   /
