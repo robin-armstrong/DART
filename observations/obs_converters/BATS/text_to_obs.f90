@@ -228,6 +228,11 @@ obsloop: do    ! no end limit - have the loop break when input ends
 
       end if
 
+      ! unit correction from BATS to MARBL alkalinity variable
+      if(OTYPE_ORDERING(otype_index) == TITRATION_ALKALINITY) then
+         ovalue = ovalue*1.026
+      end if
+
       time_obs = set_date(year, month, day, hours=hour, minutes=minute)
       call get_time(time_obs, osec, days=oday)
 
