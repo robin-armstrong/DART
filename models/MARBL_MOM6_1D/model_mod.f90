@@ -78,8 +78,9 @@ public :: get_model_size,         &
 character(len=256), parameter :: source = "model_mod.f90"
 character(len=256), parameter :: ocean_geometry = "/glade/work/rarmstrong/cesm/cesm2_3_alpha12b+mom6_marbl/components/mom/standalone/examples/single_column_MARBL/BATS/ensemble/baseline/ocean_geometry.nc"
 logical :: module_initialized = .false.
-integer :: dom_id  ! used to access the state structure
-integer :: nfields ! number of fields in the state vector
+integer :: state_dom_id  ! used to access the state structure
+integer :: param_dom_id  ! used to access MARBL internal parameters
+integer :: nfields ! number of fields in the state or parameter vector
 integer :: nz      ! the number of vertical layers
 integer :: model_size
 type(time_type) :: assimilation_time_step
@@ -90,19 +91,25 @@ real(r8) :: basin_depth(2,2)
 ! parameters to be used in specifying the DART internal state
 integer, parameter :: modelvar_table_height = 13
 integer, parameter :: modelvar_table_width = 5
+integer, parameter :: modelparams_table_height = 24
+integer, parameter :: modelparams_table_width = 5
 
 ! defining the variables that will be read from the namelist
-character(len=256) :: template_file
+character(len=256) :: template_file(2)
 integer            :: time_step_days
 integer            :: time_step_seconds
+logical            :: estimate_params
 character(len=vtablenamelength) &
    :: model_state_variables(modelvar_table_height * modelvar_table_width)
+character(len=vtablenamelength) &
+   :: model_parameters(modelparams_table_height * modelparams_table_width)
 
 namelist /model_nml/ template_file, &
                      time_step_days, &
                      time_step_seconds, &
-                     model_state_variables
-
+                     model_state_variables, &
+                     estimate_params, &
+                     model_parameters
 contains
 
 !------------------------------------------------------------------
@@ -115,10 +122,14 @@ contains
 subroutine static_init_model()
 
 integer :: iunit, io
-character(len=vtablenamelength) :: variable_table(modelvar_table_height, modelvar_table_width) 
-integer :: state_qty_list(modelvar_table_height)
-real(r8):: state_clamp_vals(modelvar_table_height, 2)
-logical :: update_var_list(modelvar_table_height)
+character(len=vtablenamelength) :: variable_table(modelvar_table_height, modelvar_table_width), &
+                                   param_table(modelparams_table_height, modelparams_table_width)
+integer :: state_qty_list(modelvar_table_height), &
+           param_qty_list(modelparams_table_height)
+real(r8):: state_clamp_vals(modelvar_table_height, 2), &
+           param_clamp_vals(modelparams_table_height, 2)
+logical :: update_var_list(modelvar_table_height), &
+           update_param_list(modelparams_table_height)
 
 module_initialized = .true.
 
@@ -144,21 +155,27 @@ if (do_nml_term()) write(     *     , nml=model_nml)
 assimilation_time_step = set_time(time_step_seconds, &
                                   time_step_days)
 
+! setting up the DART state vector
 call verify_state_variables(model_state_variables, nfields, variable_table, &
                             state_qty_list, state_clamp_vals, update_var_list)
 
-! print *, "variable_table   = ",variable_table
-! print *, "state_qty_list   = ",state_qty_list
-! print *, "state_clamp_vals = ",state_clamp_vals
-! print *, "update_var_list  = ",update_var_list
+    state_dom_id = add_domain(template_file(1), nfields, &
+                              var_names = variable_table(1:nfields, 1), &
+                              kind_list = state_qty_list(1:nfields), &
+                              clamp_vals = state_clamp_vals, &
+                              update_list = update_var_list(1:nfields))
 
-dom_id = add_domain(template_file, nfields, &
-                    var_names = variable_table(1:nfields, 1), &
-                    kind_list = state_qty_list(1:nfields), &
-                    clamp_vals = state_clamp_vals, &
-                    update_list = update_var_list(1:nfields))
+! setting up the DART parameter vector
+if(estimate_params) then
+    call verify_state_variables(model_parameters, nfields, param_table, &
+                                param_qty_list, param_clamp_vals, update_param_list)
 
-model_size = get_domain_size(dom_id)
+    param_dom_id = add_domain(template_file(2), nfields, &
+                              var_names = param_table(1:nfields, 1), &
+                              kind_list = param_qty_list(1:nfields), &
+                              clamp_vals = param_clamp_vals, &
+                              update_list = update_param_list(1:nfields))
+end if
 
 call read_num_layers     ! setting the value of nz
 call read_ocean_geometry ! determining the basin depth
@@ -201,7 +218,7 @@ integer(i8) :: get_model_size
 
 if ( .not. module_initialized ) call static_init_model
 
-get_model_size = get_domain_size(dom_id)
+get_model_size = get_domain_size(state_dom_id) + get_domain_size(param_dom_id)
 
 end function get_model_size
 
@@ -235,7 +252,7 @@ real(8)     :: loc_temp(3)
 
 if ( .not. module_initialized ) call static_init_model
 
-qty_id = get_varid_from_kind(dom_id, qty)
+qty_id = get_varid_from_kind(state_dom_id, qty)
 
 ! extracting the requested depth value from `location`.
 loc_temp = get_location(location)
@@ -244,12 +261,12 @@ requested_depth = loc_temp(3)
 ! print *, "REQUESTED DEPTH = ",requested_depth
 
 ! extracting the current layer thicknesses for each ensemble member.
-thickness_id = get_varid_from_kind(dom_id, QTY_LAYER_THICKNESS)
+thickness_id = get_varid_from_kind(state_dom_id, QTY_LAYER_THICKNESS)
 
 do layer_index = 1, nz
     ! layer thicknesses are always extracted from the grid cell at index (1, 1), since the four grid
     ! cells are supposed to represent identical columns.
-    thickness_index = get_dart_vector_index(1, 1, layer_index, dom_id, thickness_id)
+    thickness_index = get_dart_vector_index(1, 1, layer_index, state_dom_id, thickness_id)
     layer_thicknesses(layer_index, :) = get_state(thickness_index, state_handle)
 end do
 
@@ -301,7 +318,7 @@ do ens_index = 1, ens_size
         ! print *, "----------------------------------------------------"
 
         istatus(ens_index) = 0
-        qty_index = get_dart_vector_index(1, 1, layer_index, dom_id, qty_id)
+        qty_index = get_dart_vector_index(1, 1, layer_index, state_dom_id, qty_id)
         state_slice = get_state(qty_index, state_handle)
         expected_obs(ens_index) = state_slice(ens_index)
 
@@ -323,11 +340,11 @@ do ens_index = 1, ens_size
                                         - .5*layer_thicknesses(layer_index + 1, ens_index)
         
         ! extracting the quantity values at the layers above and below
-        qty_index = get_dart_vector_index(1, 1, layer_index, dom_id, qty_id)
+        qty_index = get_dart_vector_index(1, 1, layer_index, state_dom_id, qty_id)
         state_slice = get_state(qty_index, state_handle)
         val_above = state_slice(ens_index)
 
-        qty_index = get_dart_vector_index(1, 1, layer_index + 1, dom_id, qty_id)
+        qty_index = get_dart_vector_index(1, 1, layer_index + 1, state_dom_id, qty_id)
         state_slice = get_state(qty_index, state_handle)
         val_below = state_slice(ens_index)
 
@@ -480,7 +497,7 @@ end subroutine nc_write_model_atts
 ! that there are valid entries for the dart_kind.
 ! Returns a table with columns:
 !
-! netcdf_variable_name ; dart_qty_string ; update_string
+! netcdf_variable_name ; dart_qty_string ; lowerbound ; upperbound ; update_string
 
 subroutine verify_state_variables(state_variables, ngood, table, qty_list, clamp_vals, update_var)
 
@@ -601,7 +618,7 @@ integer :: ncid
 
 character(len=*), parameter :: routine = 'read_num_layers'
 
-ncid = nc_open_file_readonly(template_file)
+ncid = nc_open_file_readonly(template_file(1))
 
 call nc_get_variable_size(ncid, 'Layer', nz)
 
