@@ -87,6 +87,8 @@ real(r8), parameter :: geolon = 360 - 64.0
 real(r8), parameter :: geolat = 31.0
 real(r8) :: basin_depth(2,2)
 
+logical, parameter :: debug_interpolation = .false.
+
 ! parameters to be used in specifying the DART internal state
 integer, parameter :: modelvar_table_height = 13
 integer, parameter :: modelvar_table_width = 5
@@ -241,7 +243,7 @@ qty_id = get_varid_from_kind(dom_id, qty)
 loc_temp = get_location(location)
 requested_depth = loc_temp(3)
 
-! print *, "REQUESTED DEPTH = ",requested_depth
+if(debug_interpolation) then; print *, "REQUESTED DEPTH = ",requested_depth; end if
 
 ! extracting the current layer thicknesses for each ensemble member.
 thickness_id = get_varid_from_kind(dom_id, QTY_LAYER_THICKNESS)
@@ -255,10 +257,12 @@ end do
 
 ! performing the interpolation for each ensemble member individually.
 do ens_index = 1, ens_size
-    ! print *, "BASIN DEPTH     = ",-basin_depth(1,1)
-    ! print *, "----------------------------------------------------"
-    ! print *, "computing centers of layers"
-    ! print *, "----------------------------------------------------"
+    if(debug_interpolation) then
+        print *, "BASIN DEPTH     = ",-basin_depth(1,1)
+        print *, "----------------------------------------------------"
+        print *, "computing centers of layers"
+        print *, "----------------------------------------------------"
+    end if
 
     ! locating the layer index to be used as the upper interpolation point for this ensemble member.
     layer_index = nz
@@ -268,7 +272,9 @@ do ens_index = 1, ens_size
     layerdepth_top = layerdepth_bottom &        ! depth at top of the layer given by layer_index.
                           + layer_thicknesses(layer_index, ens_index)
 
-    ! print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom,", top = ",layerdepth_top
+    if(debug_interpolation) then
+        print *, "layer = ",layer_index,", center = ",layerdepth_center,", bottom = ",layerdepth_bottom,", top = ",layerdepth_top
+    end if
     
     do while((layerdepth_center < requested_depth) .and. (layer_index > 1))
         layer_index = layer_index - 1
@@ -276,7 +282,9 @@ do ens_index = 1, ens_size
         layerdepth_center = layerdepth_bottom + 0.5 * layer_thicknesses(layer_index, ens_index)
         layerdepth_top = layerdepth_bottom + layer_thicknesses(layer_index, ens_index)
 
-        ! print *, "layer = ",layer_index,", bottom = ",layerdepth_bottom,", center = ",layerdepth_center,", top = ",layerdepth_top
+        if(debug_interpolation) then
+            print *, "layer = ",layer_index,", bottom = ",layerdepth_bottom,", center = ",layerdepth_center,", top = ",layerdepth_top
+        end if
 
     end do
 
@@ -284,9 +292,11 @@ do ens_index = 1, ens_size
     if((requested_depth < -basin_depth(1,1)) .or. (layerdepth_top < requested_depth)) then
         ! case where the requested depth is below the ocean floor, or above the ocean surface
 
-        ! print *, "----------------------------------------------------"
-        ! print *, "depth is below ocean floor or above ocean surface"
-        ! print *, "----------------------------------------------------"
+        if(debug_interpolation) then
+            print *, "----------------------------------------------------"
+            print *, "depth is below ocean floor or above ocean surface"
+            print *, "----------------------------------------------------"
+        end if
 
         istatus(ens_index) = 1
         expected_obs(ens_index) = MISSING_R8
@@ -296,24 +306,28 @@ do ens_index = 1, ens_size
         ! or the top half of the shallowest layer. In both cases, the "interpolated" value is
         ! simply the current value of that layer in MOM6.
 
-        ! print *, "----------------------------------------------------"
-        ! print *, "only using value from layer ",layer_index
-        ! print *, "----------------------------------------------------"
+        if(debug_interpolation) then
+            print *, "----------------------------------------------------"
+            print *, "only using value from layer ",layer_index
+            print *, "----------------------------------------------------"
+        end if
 
         istatus(ens_index) = 0
         qty_index = get_dart_vector_index(1, 1, layer_index, dom_id, qty_id)
         state_slice = get_state(qty_index, state_handle)
         expected_obs(ens_index) = state_slice(ens_index)
 
-        ! print *, "final value = ",expected_obs(ens_index)
+        if(debug_interpolation) then; print *, "final value = ",expected_obs(ens_index); end if
 
     else
         ! case where the requested depth is above the center of some layer, and below
         ! the center of another. We interpolate linearly between the nearest layers above
         ! and below.
 
-        ! print *, "----------------------------------------------------"
-        ! print *, "interpolating between layers ",layer_index," and ",(layer_index + 1)
+        if(debug_interpolation) then
+            print *, "----------------------------------------------------"
+            print *, "interpolating between layers ",layer_index," and ",(layer_index + 1)
+        end if
 
         istatus(ens_index) = 0
 
@@ -331,13 +345,15 @@ do ens_index = 1, ens_size
         state_slice = get_state(qty_index, state_handle)
         val_below = state_slice(ens_index)
 
-        ! print *, "corresponding to the values: ",val_above," and ",val_below
-        ! print *, "----------------------------------------------------"
+        if(debug_interpolation) then
+            print *, "corresponding to the values: ",val_above," and ",val_below
+            print *, "----------------------------------------------------"
+        end if
 
         ! linear interpolation
         expected_obs(ens_index) = val_above + (requested_depth - depth_above) * (val_below - val_above) / (depth_below - depth_above)
 
-        ! print *, "final value = ",expected_obs(ens_index)
+        if(debug_interpolation) then; print *, "final value = ",expected_obs(ens_index); end if
     end if
 end do
 
