@@ -9,19 +9,17 @@
    lon_cols              = 51, 56
    vert_cols             = 58, 63
    scalar_obs_cols       = 102, 107,            ! i^th row of this table should list the first and last
-                           134, 139,            ! columns where the value of the i^th observation variable
-                           141, 147,            ! is recorded. Ordering of observation variables is defined
-                           158, 164,            ! by the OTYPE_ORDERING parameter in text_to_obs.f90.
-                           166, 172,
-                           192, 197,
-                           201, 206
+                           126, 131,            ! columns where the value of the i^th observation variable
+                           134, 139,            ! is recorded. Ordering of observation variables is defined
+                           141, 147,            ! by the OTYPE_ORDERING parameter in text_to_obs.f90.
+                           158, 164,
+                           166, 172
    obs_uncertainties     = 0.2,           ! i^th entry of this list gives the uncertainty associated
                            0.2,          ! with the i^th observation variable. Ordering of observation
                            0.2,           ! variables is defined by the OTYPE_ORDERING parameter in
                            0.2,          ! text_to_obs.f90.
                            0.2,
                            0.2,
-                           0.2
    obs_out_dir           = '../../../../../BATS_obsseq',
    debug                 = .true.
   /
@@ -36,10 +34,13 @@
   /
 
 &obs_kind_nml
-  assimilate_these_obs_types = 'POLY_ELECTRODE_OXYGEN',
-                               'TITRATION_ALKALINITY',
-                               'CATALYTIC_CARBON',
-                               'UV_OXY_NITROGEN'
+  assimilate_these_obs_types = 'BATS_OXYGEN',
+                               'BATS_INORGANIC_CARBON',
+                               'BATS_ALKALINITY',
+                               'BATS_NITRATE',
+                               'BATS_PHOSPHATE',
+                               'BATS_SILICATE'
+
   /
 
 &location_nml
