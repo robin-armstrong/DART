@@ -25,19 +25,18 @@ use  obs_sequence_mod, only : obs_sequence_type, obs_type, read_obs_seq, &
                               init_obs_sequence, get_num_obs, set_copy_meta_data, &
                               set_qc_meta_data, destroy_obs_sequence
 
-use      obs_kind_mod, only : POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, &
-                              CATALYTIC_CARBON, UV_OXY_NITROGEN, CFA_NITRATE, &
-                              CFA_SILICATE, CFA_PHOSPHATE
+use      obs_kind_mod, only : BATS_OXYGEN, BATS_INORGANIC_CARBON, BATS_ALKALINITY, &
+                              BATS_NITRATE, BATS_PHOSPHATE, BATS_SILICATE
 
 implicit none
 
-integer, parameter :: NUM_SCALAR_OBS = 7  ! maximum number of scalar observation variables that will
+integer, parameter :: NUM_SCALAR_OBS = 6  ! maximum number of scalar observation variables that will
                                           ! be assimilated at each observation.
 
 ! this array defines the order in which observations are read from the file
 integer, parameter :: OTYPE_ORDERING(NUM_SCALAR_OBS) &
-                      = (/POLY_ELECTRODE_OXYGEN, TITRATION_ALKALINITY, CFA_NITRATE, CFA_PHOSPHATE, &
-                          CFA_SILICATE, CATALYTIC_CARBON, UV_OXY_NITROGEN/)
+                      = (/BATS_OXYGEN, BATS_INORGANIC_CARBON, BATS_ALKALINITY, BATS_NITRATE, &
+                          BATS_PHOSPHATE, BATS_SILICATE/)
 
 real(r8), parameter :: MIN_OBS_ERROR = 0.1_r8
 
@@ -228,8 +227,8 @@ obsloop: do    ! no end limit - have the loop break when input ends
 
       end if
 
-      ! unit correction from BATS to MARBL alkalinity variable
-      if(OTYPE_ORDERING(otype_index) == TITRATION_ALKALINITY) then
+      ! unit corrections from BATS to MARBL
+      if((OTYPE_ORDERING(otype_index) == BATS_ALKALINITY) .or. (OTYPE_ORDERING(otype_index) == BATS_INORGANIC_CARBON)) then
          ovalue = ovalue*1.026
       end if
 
