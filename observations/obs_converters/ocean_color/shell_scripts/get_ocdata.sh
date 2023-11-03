@@ -4,21 +4,21 @@
 # daily, 9km/4km
 # Modis Aqua / VIIRS chlorophyll-a OCI algorithm
 
-work_dir=/Users/gharamti/Documents/DART_git/MITgcm-NBLING-DART/observations/obs_converters/ocean_color/work
-data_dir=/Users/gharamti/Documents/DART_git/MITgcm-NBLING-DART/observations/obs_converters/ocean_color/data
+work_dir=/glade/u/home/rarmstrong/work/DART/observations/obs_converters/ocean_color/work
+data_dir=/glade/u/home/rarmstrong/work/DART/observations/obs_converters/ocean_color/data
 mkdir -p $data_dir 
 
-date1=2018-10-01
-date2=2018-10-02
-resol=4km #4km, 9km
+date1=1988-10-20
+date2=2022-12-16
+resol=9km
 obsname=chlor_a
 
 obs_seq_tag=obs_seq_chl
 
-minlat=10.0
-maxlat=30.0
-minlon=30.0
-maxlon=50.0
+minlat=31.0
+maxlat=31.0
+minlon=-64.0
+maxlon=-64.0
 
 crop_region=true
 
@@ -27,8 +27,8 @@ crop_region=true
 instrument=VIIRS 
 
 # webpage credentials
-username=XXXXXXXX
-password=XXXXXXXX
+username=dares_team_member
+password=dart_2009BAMS!
 web_page=https://oceandata.sci.gsfc.nasa.gov/api/file_search
 
 touch ~/.netrc

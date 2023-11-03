@@ -228,8 +228,10 @@ obsloop: do    ! no end limit - have the loop break when input ends
       end if
 
       ! unit corrections from BATS to MARBL
-      if((OTYPE_ORDERING(otype_index) == BATS_ALKALINITY) .or. (OTYPE_ORDERING(otype_index) == BATS_INORGANIC_CARBON)) then
+      if(OTYPE_ORDERING(otype_index) == BATS_ALKALINITY) then
          ovalue = ovalue*1.026
+      else if(OTYPE_ORDERING(otype_index) == BATS_INORGANIC_CARBON) then
+         ovalue = ovalue*0.976
       end if
 
       time_obs = set_date(year, month, day, hours=hour, minutes=minute)
