@@ -13,7 +13,7 @@
    file_out        = 'obs_seq_chl'
    chl_thresh      = 0.03 
    subsample_intv  = 1
-   special_mask    = .true.
+   special_mask    = .false.
    debug           = .true.
    /
 

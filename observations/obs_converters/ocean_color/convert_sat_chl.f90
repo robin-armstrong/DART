@@ -197,10 +197,10 @@ TIMELOOP: do itime = 1,ndays
 
          ! log-transform of the data
          ! Assimilate the logarithm of the data
-         log_chl = log10(max(chl_thresh, chl(i, j))) 
+         ! log_chl = log10(max(chl_thresh, chl(i, j))) 
 
-         call create_3d_obs(lat(j), lon(i), 0.0_r8, VERTISSURFACE, log_chl, &
-                            OCEAN_COLOR, chl_error_sd, oday, osec, qc, obs)
+         call create_3d_obs(lat(j), lon(i), 0.0_r8, VERTISSURFACE, max(chl_thresh, chl(i, j)), &
+                            OCEAN_COLOR, chl_error_sd*max(chl_thresh, chl(i, j)), oday, osec, qc, obs)
          call add_obs_to_seq(obs_seq, obs, obs_time, prev_obs, prev_time, first_obs)
 
       enddo lonloop
